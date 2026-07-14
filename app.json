@@ -1,0 +1,16 @@
+{
+  "expo": {
+    "name": "My Day",
+    "slug": "my-day",
+    "version": "1.0.0",
+    "assetBundlePatterns": ["**/*"],
+    "platforms": ["ios", "android", "web"],
+    "android": {
+      "package": "com.teachingpariksha.myday"
+    },
+    "ios": {
+      "bundleIdentifier": "com.teachingpariksha.myday"
+    },
+    "plugins": ["expo-router"]
+  }
+}
