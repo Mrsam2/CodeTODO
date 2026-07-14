@@ -56,3 +56,5 @@ mongoose
 app.listen(PORT, () => {
   console.log(`My Day unified backend listening on port ${PORT}`);
 });
+
+export default app;
