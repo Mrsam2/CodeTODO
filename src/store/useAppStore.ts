@@ -139,7 +139,7 @@ const defaultSettings: Settings = {
   streakTargetPct: 80,
   dayStartTime: '06:00',
   dayEndTime: '23:00',
-  aiBackendUrl: 'http://localhost:8787',
+  aiBackendUrl: process.env.EXPO_PUBLIC_AI_BACKEND_URL || 'http://localhost:8787',
   notificationsEnabled: false,
   onboardingComplete: false,
 };
