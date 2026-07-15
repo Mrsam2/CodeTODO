@@ -1,20 +1,28 @@
-import { ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
-import { ThemedView } from '@/components/themed-view';
-import { Button, Card, Input, Row, SectionHeader } from '@/components/ui';
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
-import { useAppStore } from '@/store/useAppStore';
-import { useState, useEffect } from 'react';
-import { useTheme } from '@/hooks/use-theme';
+import { ScrollView, StyleSheet, TouchableOpacity } from "react-native";
+import { ThemedView } from "@/components/themed-view";
+import { Button, Card, Input, Row, SectionHeader } from "@/components/ui";
+import { ThemedText } from "@/components/themed-text";
+import { Spacing } from "@/constants/theme";
+import { useAppStore } from "@/store/useAppStore";
+import { useState, useEffect } from "react";
+import { useTheme } from "@/hooks/use-theme";
 
 export default function SettingsScreen() {
   const store = useAppStore();
   const colors = useTheme();
-  const [granularity, setGranularity] = useState(String(store.settings.slotGranularityMins));
-  const [gracePeriod, setGracePeriod] = useState(String(store.settings.gracePeriodMins));
-  const [streakTarget, setStreakTarget] = useState(String(store.settings.streakTargetPct));
+  const [granularity, setGranularity] = useState(
+    String(store.settings.slotGranularityMins),
+  );
+  const [gracePeriod, setGracePeriod] = useState(
+    String(store.settings.gracePeriodMins),
+  );
+  const [streakTarget, setStreakTarget] = useState(
+    String(store.settings.streakTargetPct),
+  );
   const [backendUrl, setBackendUrl] = useState(store.settings.aiBackendUrl);
-  const [themeMode, setThemeMode] = useState<'system' | 'light' | 'dark'>(store.settings.themeMode || 'system');
+  const [themeMode, setThemeMode] = useState<"system" | "light" | "dark">(
+    store.settings.themeMode || "system",
+  );
 
   const save = () => {
     store.updateSettings({
@@ -39,7 +47,7 @@ export default function SettingsScreen() {
       settings: store.settings,
     };
     const json = JSON.stringify(data, null, 2);
-    console.log('Export data:', json);
+    console.log("Export data:", json);
   };
 
   return (
@@ -50,13 +58,17 @@ export default function SettingsScreen() {
         {store.user ? (
           <Card>
             <ThemedText type="bodyBold">Account Settings</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary" style={{ marginBottom: Spacing.two }}>
+            <ThemedText
+              type="small"
+              themeColor="textSecondary"
+              style={{ marginBottom: Spacing.two }}
+            >
               Logged in as: {store.user.email}
             </ThemedText>
-            
+
             <Row style={{ gap: Spacing.two }}>
               <Button
-                title={store.isSyncing ? 'Syncing...' : 'Sync Now'}
+                title={store.isSyncing ? "Syncing..." : "Sync Now"}
                 onPress={() => store.syncWithCloud()}
                 disabled={store.isSyncing}
               />
@@ -67,7 +79,11 @@ export default function SettingsScreen() {
               />
             </Row>
             {store.lastSyncAt ? (
-              <ThemedText type="small" themeColor="textSecondary" style={{ marginTop: Spacing.one, fontSize: 11 }}>
+              <ThemedText
+                type="small"
+                themeColor="textSecondary"
+                style={{ marginTop: Spacing.one, fontSize: 11 }}
+              >
                 Last cloud sync: {new Date(store.lastSyncAt).toLocaleString()}
               </ThemedText>
             ) : null}
@@ -117,7 +133,7 @@ export default function SettingsScreen() {
           <Input
             value={backendUrl}
             onChangeText={setBackendUrl}
-            placeholder="http://localhost:8787"
+            placeholder=" "
           />
         </Card>
 
@@ -126,24 +142,26 @@ export default function SettingsScreen() {
             App Theme Mode
           </ThemedText>
           <Row style={{ gap: 8 }}>
-            {(['system', 'light', 'dark'] as const).map((mode) => (
+            {(["system", "light", "dark"] as const).map((mode) => (
               <TouchableOpacity
                 key={mode}
                 onPress={() => setThemeMode(mode)}
                 style={[
                   styles.themeButton,
                   {
-                    backgroundColor: themeMode === mode ? colors.primary : colors.surface,
-                    borderColor: themeMode === mode ? colors.primary : colors.border,
+                    backgroundColor:
+                      themeMode === mode ? colors.primary : colors.surface,
+                    borderColor:
+                      themeMode === mode ? colors.primary : colors.border,
                   },
                 ]}
               >
                 <ThemedText
                   style={{
-                    color: themeMode === mode ? '#FFF' : colors.text,
-                    fontWeight: '700',
+                    color: themeMode === mode ? "#FFF" : colors.text,
+                    fontWeight: "700",
                     fontSize: 12,
-                    textTransform: 'capitalize',
+                    textTransform: "capitalize",
                   }}
                 >
                   {mode}
@@ -156,7 +174,11 @@ export default function SettingsScreen() {
         <Card>
           <Row style={{ gap: Spacing.two }}>
             <Button title="Save Settings" onPress={save} />
-            <Button title="Export Data" onPress={exportData} variant="secondary" />
+            <Button
+              title="Export Data"
+              onPress={exportData}
+              variant="secondary"
+            />
           </Row>
         </Card>
       </ScrollView>
@@ -171,7 +193,7 @@ const styles = StyleSheet.create({
     height: 40,
     borderWidth: 1.5,
     borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
