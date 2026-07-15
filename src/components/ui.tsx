@@ -105,6 +105,9 @@ interface InputProps {
   style?: TextStyle;
   editable?: boolean;
   numberOfLines?: number;
+  secureTextEntry?: boolean;
+  autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
+  autoCorrect?: boolean;
 }
 
 export function Input({
@@ -116,6 +119,9 @@ export function Input({
   style,
   editable = true,
   numberOfLines,
+  secureTextEntry,
+  autoCapitalize,
+  autoCorrect,
 }: InputProps) {
   const colors = useTheme();
   return (
@@ -128,6 +134,9 @@ export function Input({
       multiline={multiline}
       editable={editable}
       numberOfLines={numberOfLines}
+      secureTextEntry={secureTextEntry}
+      autoCapitalize={autoCapitalize}
+      autoCorrect={autoCorrect}
       style={[
         {
           backgroundColor: colors.surfaceMuted,

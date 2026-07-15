@@ -71,6 +71,12 @@ interface AppState {
   signup: (email: string, password: string) => Promise<string | null>;
   logout: () => void;
   syncWithCloud: () => Promise<void>;
+  requestPasswordResetOtp: (email: string) => Promise<string | null>;
+  resetPassword: (
+    email: string,
+    otp: string,
+    newPassword: string,
+  ) => Promise<string | null>;
 
   // Category actions
   addCategory: (cat: Omit<Category, "id" | "createdAt">) => void;
@@ -264,6 +270,48 @@ export const useAppStore = create<AppState>()(
         } catch (error: any) {
           console.error(error);
           return error.message || "Signup failed";
+        }
+      },
+
+      requestPasswordResetOtp: async (email) => {
+        try {
+          const response = await fetch(
+            `${get().settings.aiBackendUrl}/api/auth/forgot-password`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ email }),
+            },
+          );
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.error || "Failed to request password reset");
+          }
+          return null;
+        } catch (error: any) {
+          console.error(error);
+          return error.message || "Failed to request password reset";
+        }
+      },
+
+      resetPassword: async (email, otp, newPassword) => {
+        try {
+          const response = await fetch(
+            `${get().settings.aiBackendUrl}/api/auth/reset-password`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ email, otp, newPassword }),
+            },
+          );
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.error || "Failed to reset password");
+          }
+          return null;
+        } catch (error: any) {
+          console.error(error);
+          return error.message || "Failed to reset password";
         }
       },
 
