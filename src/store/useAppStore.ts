@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { persist } from "zustand/middleware";
+import { Alert } from "react-native";
 import {
   Category,
   RoadmapNode,
@@ -119,6 +120,7 @@ interface AppState {
   setTodoStatus: (id: string, status: Todo["status"]) => void;
   toggleChecklistItem: (todoId: string, itemId: string) => void;
   deleteTodo: (id: string) => void;
+  autoArrangeTodosByTime: (date: string) => void;
   /** Does this todo's roadmap topic fit inside its assigned slot? */
   topicFitsSlot: (todoId: string) => boolean;
   /**
@@ -199,6 +201,62 @@ function nextTodoOrder(todos: Todo[], dueDate: string) {
     -1,
   );
   return highest + 1;
+}
+
+function parseTimeString(timeStr: string): string | null {
+  const regex = /(\d{1,2})(?::(\d{2}))?\s*(AM|PM|am|pm)?/i;
+  const match = timeStr.match(regex);
+  if (!match) return null;
+
+  let hours = parseInt(match[1], 10);
+  const minutes = match[2] ? parseInt(match[2], 10) : 0;
+  const ampm = match[3] ? match[3].toUpperCase() : null;
+
+  if (ampm) {
+    if (ampm === "PM" && hours < 12) hours += 12;
+    if (ampm === "AM" && hours === 12) hours = 0;
+  }
+
+  const hh = String(hours).padStart(2, "0");
+  const mm = String(minutes).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
+function cleanDuplicates(
+  todos: Todo[],
+  currentDeletedIds: string[],
+): { cleanedTodos: Todo[]; newDeletedIds: string[] } {
+  const seenKeys = new Set<string>();
+  const cleanedTodos: Todo[] = [];
+  const deletedIds = [...currentDeletedIds];
+
+  // Sort by updatedAt descending so we keep the most recently updated todo if there are duplicates!
+  const sortedTodos = [...todos].sort((a, b) => b.updatedAt - a.updatedAt);
+
+  for (const todo of sortedTodos) {
+    // Generate a unique key for this todo's occurrence on a specific date
+    let key = "";
+    if (todo.timeSlotId) {
+      // For plan-generated slot todos, we use timeSlotId and dueDate
+      key = `${todo.dueDate}_slot_${todo.timeSlotId}`;
+    } else {
+      // For manual todos, we use the title, dueDate, and description
+      key = `${todo.dueDate}_manual_${todo.title.toLowerCase().trim()}_${(todo.description ?? "").toLowerCase().trim()}`;
+    }
+
+    if (seenKeys.has(key)) {
+      // This is a duplicate! Add to deletedIds so the database gets cleaned up
+      deletedIds.push(todo.id);
+    } else {
+      seenKeys.add(key);
+      cleanedTodos.push(todo);
+    }
+  }
+
+  // Restore chronological order (original sort order by ID/createdAt)
+  cleanedTodos.sort((a, b) => a.createdAt - b.createdAt);
+
+  return { cleanedTodos, newDeletedIds: deletedIds };
 }
 
 export const useAppStore = create<AppState>()(
@@ -340,29 +398,36 @@ export const useAppStore = create<AppState>()(
           return;
         }
 
+        // Run client-side deduplication before syncing
+        const { cleanedTodos, newDeletedIds } = cleanDuplicates(state.todos, state.deletedIds);
+        if (cleanedTodos.length !== state.todos.length) {
+          set({ todos: cleanedTodos, deletedIds: newDeletedIds });
+        }
+
         set({ isSyncing: true, syncPending: false });
         try {
+          const currentState = get();
           const response = await fetch(
-            `${state.settings.aiBackendUrl}/api/sync`,
+            `${currentState.settings.aiBackendUrl}/api/sync`,
             {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
-                Authorization: `Bearer ${state.token}`,
+                Authorization: `Bearer ${currentState.token}`,
               },
               body: JSON.stringify({
-                categories: state.categories,
-                roadmapNodes: state.roadmapNodes,
-                todos: state.todos,
-                dayPlans: state.dayPlans,
-                notes: state.notes,
-                savedLinks: state.savedLinks,
-                futureIdeas: state.futureIdeas,
-                shiftLogs: state.shiftLogs,
-                studyPlans: state.studyPlans,
-                aiSuggestions: state.aiSuggestions,
-                settings: state.settings,
-                deletedIds: state.deletedIds,
+                categories: currentState.categories,
+                roadmapNodes: currentState.roadmapNodes,
+                todos: currentState.todos,
+                dayPlans: currentState.dayPlans,
+                notes: currentState.notes,
+                savedLinks: currentState.savedLinks,
+                futureIdeas: currentState.futureIdeas,
+                shiftLogs: currentState.shiftLogs,
+                studyPlans: currentState.studyPlans,
+                aiSuggestions: currentState.aiSuggestions,
+                settings: currentState.settings,
+                deletedIds: currentState.deletedIds,
               }),
             },
           );
@@ -371,10 +436,11 @@ export const useAppStore = create<AppState>()(
             const data = await response.json();
             // Only apply server state if no local mutations occurred during the request
             if (!get().syncPending) {
+              const { cleanedTodos: serverCleanedTodos } = cleanDuplicates(data.todos, []);
               set({
                 categories: data.categories,
                 roadmapNodes: data.roadmapNodes,
-                todos: data.todos,
+                todos: serverCleanedTodos,
                 dayPlans: data.dayPlans,
                 notes: data.notes,
                 savedLinks: data.savedLinks,
@@ -662,8 +728,52 @@ export const useAppStore = create<AppState>()(
 
       // Todos
       addManualTodo: (todo) => {
+        // Parse time range from title if present (e.g. "Wake up 6:00 AM - 6:15 AM")
+        const timeRangeRegex = /(\d{1,2}(?::\d{2})?\s*(?:AM|PM|am|pm)?)\s*(?:-|to)\s*(\d{1,2}(?::\d{2})?\s*(?:AM|PM|am|pm)?)/i;
+        const match = todo.title.match(timeRangeRegex);
+
+        let cleanedTitle = todo.title.trim();
+        let description = todo.description || "";
+        let timeSlotId = todo.timeSlotId || null;
+
+        if (match) {
+          const startStr = parseTimeString(match[1]);
+          const endStr = parseTimeString(match[2]);
+
+          if (startStr && endStr) {
+            // Find matching time slot on this day
+            const dayPlan = get().dayPlans.find((dp) => dp.date === todo.dueDate);
+            const matchingSlot = dayPlan?.timeSlots.find(
+              (slot) => slot.startTime === startStr && slot.endTime === endStr,
+            );
+
+            if (matchingSlot) {
+              timeSlotId = matchingSlot.id;
+            }
+
+            cleanedTitle = todo.title.replace(match[0], "").replace(/\s+/g, " ").trim();
+            description = `${match[1]} - ${match[2]}`;
+          }
+        }
+
+        const isDuplicate = get().todos.some(
+          (t) =>
+            t.title.toLowerCase().trim() === cleanedTitle.toLowerCase().trim() &&
+            t.dueDate === todo.dueDate,
+        );
+        if (isDuplicate) {
+          Alert.alert(
+            "Duplicate Todo",
+            "A todo with this name already exists on this day.",
+          );
+          return;
+        }
+
         const newTodo: Todo = {
           ...todo,
+          title: cleanedTitle,
+          description: description,
+          timeSlotId: timeSlotId,
           id: generateId("todo"),
           order: nextTodoOrder(get().todos, todo.dueDate),
           createdAt: Date.now(),
@@ -908,6 +1018,41 @@ export const useAppStore = create<AppState>()(
           todos: state.todos.filter((t) => t.id !== id),
           deletedIds: [...state.deletedIds, id],
         }));
+        get().syncWithCloud();
+      },
+
+      autoArrangeTodosByTime: (date) => {
+        set((state) => {
+          const dateTodos = state.todos.filter((t) => t.dueDate === date);
+
+          const getTodoMinutes = (todo: Todo) => {
+            if (todo.timeSlotId) {
+              const dayPlan = state.dayPlans.find((dp) => dp.date === date);
+              const slot = dayPlan?.timeSlots.find((s) => s.id === todo.timeSlotId);
+              if (slot) return timeToMins(slot.startTime);
+            }
+            if (todo.description) {
+              const match = todo.description.match(/(\d{1,2}(?::\d{2})?\s*(?:AM|PM|am|pm)?)/i);
+              if (match) {
+                const parsed = parseTimeString(match[1]);
+                if (parsed) return timeToMins(parsed);
+              }
+            }
+            return 24 * 60; // Default to late sorting
+          };
+
+          const sorted = [...dateTodos].sort((a, b) => getTodoMinutes(a) - getTodoMinutes(b));
+
+          const updatedTodos = state.todos.map((t) => {
+            if (t.dueDate === date) {
+              const idx = sorted.findIndex((st) => st.id === t.id);
+              return { ...t, order: idx };
+            }
+            return t;
+          });
+
+          return { todos: updatedTodos };
+        });
         get().syncWithCloud();
       },
 
@@ -1192,13 +1337,24 @@ export const useAppStore = create<AppState>()(
         const dayPlan = get().dayPlans.find((dp) => dp.date === date);
         if (!dayPlan) return;
 
+        // Track the IDs of previously generated slots & todos that are being replaced
+        const removedSlotIds = dayPlan.timeSlots
+          .filter((ts) => (ts.slotTemplateId ?? "").startsWith(PREFIX))
+          .map((ts) => ts.id);
+        const removedTodoIds = state.todos
+          .filter(
+            (t) =>
+              t.dueDate === date && (t.timeSlotId ?? "").startsWith(PREFIX),
+          )
+          .map((t) => t.id);
+        const idsDeleted = [...removedSlotIds, ...removedTodoIds];
+
         // Remove previously generated slots & todos from this plan so re-clicking is safe
         const retainedSlots = dayPlan.timeSlots.filter(
-          (ts) => !(ts.slotTemplateId ?? "").startsWith(PREFIX),
+          (ts) => !removedSlotIds.includes(ts.id),
         );
         const retainedTodos = state.todos.filter(
-          (t) =>
-            !(t.dueDate === date && (t.timeSlotId ?? "").startsWith(PREFIX)),
+          (t) => !removedTodoIds.includes(t.id),
         );
 
         const newTimeSlots: TimeSlot[] = [];
@@ -1299,6 +1455,7 @@ export const useAppStore = create<AppState>()(
               : dp,
           ),
           todos: [...retainedTodos, ...newTodos],
+          deletedIds: [...state.deletedIds, ...idsDeleted],
         }));
 
         get().syncWithCloud();
@@ -1309,7 +1466,21 @@ export const useAppStore = create<AppState>()(
       storage: {
         getItem: async (key) => {
           const item = await AsyncStorage.getItem(key);
-          return item ? JSON.parse(item) : null;
+          if (!item) return null;
+          try {
+            const parsed = JSON.parse(item);
+            if (parsed && parsed.state && Array.isArray(parsed.state.todos)) {
+              const { cleanedTodos, newDeletedIds } = cleanDuplicates(
+                parsed.state.todos,
+                parsed.state.deletedIds || [],
+              );
+              parsed.state.todos = cleanedTodos;
+              parsed.state.deletedIds = newDeletedIds;
+            }
+            return parsed;
+          } catch (e) {
+            return JSON.parse(item);
+          }
         },
         setItem: async (key, value) => {
           await AsyncStorage.setItem(key, JSON.stringify(value));
@@ -1321,3 +1492,21 @@ export const useAppStore = create<AppState>()(
     },
   ),
 );
+
+// If in development mode, force the backend URL to match the local env configuration to avoid stale localStorage caching issues.
+if (__DEV__) {
+  const localEnvUrl = process.env.EXPO_PUBLIC_AI_BACKEND_URL;
+  if (localEnvUrl) {
+    setTimeout(() => {
+      const state = useAppStore.getState();
+      if (state && state.settings && state.settings.aiBackendUrl !== localEnvUrl) {
+        useAppStore.setState({
+          settings: {
+            ...state.settings,
+            aiBackendUrl: localEnvUrl,
+          }
+        });
+      }
+    }, 100);
+  }
+}

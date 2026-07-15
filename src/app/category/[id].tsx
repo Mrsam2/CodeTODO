@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { ScrollView, StyleSheet, View, ActivityIndicator } from 'react-native';
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
-import { Button, Card, Input, ProgressBar, Row, SectionHeader } from '@/components/ui';
+import { Button, Card, Input, ProgressBar, Row, SectionHeader, CategoryIcon, AIButton } from '@/components/ui';
 import { RoadmapTree } from '@/components/roadmap-tree';
 import { Spacing } from '@/constants/theme';
 import { categoryCompletionPct } from '@/lib/roadmap';
@@ -54,10 +54,10 @@ export default function CategoryDetailScreen() {
 
   return (
     <ThemedView style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={{ gap: Spacing.two, marginBottom: Spacing.three }}>
           <Row>
-            <ThemedText style={{ fontSize: 32 }}>{category.icon}</ThemedText>
+            <CategoryIcon icon={category.icon} size={32} />
             <View style={{ flex: 1, gap: Spacing.one }}>
               <ThemedText type="title">{category.name}</ThemedText>
               {category.description ? (
@@ -93,11 +93,11 @@ export default function CategoryDetailScreen() {
             <ThemedText type="small" themeColor="textSecondary" style={{ textAlign: 'center', paddingHorizontal: Spacing.two }}>
               Let Gemini AI build a structured study roadmap based on your track details.
             </ThemedText>
-            {isGenerating ? (
-              <ActivityIndicator size="small" color="#14161A" style={{ marginVertical: Spacing.one }} />
-            ) : (
-              <Button title="Generate with Gemini" onPress={generateAIRoadmap} />
-            )}
+            <AIButton
+              title="Generate with Gemini"
+              onPress={generateAIRoadmap}
+              loading={isGenerating}
+            />
           </Card>
         ) : (
           <RoadmapTree categoryId={id} nodes={store.roadmapNodes} />

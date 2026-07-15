@@ -6,7 +6,7 @@ import {
 import { useRouter } from "expo-router";
 import { ThemedView } from "@/components/themed-view";
 import { ThemedText } from "@/components/themed-text";
-import { Card, Button, SectionHeader, Row, Input, ProgressBar } from "@/components/ui";
+import { Card, Button, SectionHeader, Row, Input, ProgressBar, CategoryIcon } from "@/components/ui";
 import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { useAppStore } from "@/store/useAppStore";
@@ -213,9 +213,12 @@ function SlotRow({
                       }
                     ]}
                   >
-                    <ThemedText style={{ fontSize: 9, color: active ? "#FFF" : cat.color || colors.primary, fontWeight: "600" }}>
-                      {cat.icon} {cat.name}
-                    </ThemedText>
+                    <Row style={{ gap: 4, alignItems: 'center' }}>
+                      <CategoryIcon icon={cat.icon} size={9} />
+                      <ThemedText style={{ fontSize: 9, color: active ? "#FFF" : cat.color || colors.primary, fontWeight: "600" }}>
+                        {cat.name}
+                      </ThemedText>
+                    </Row>
                   </TouchableOpacity>
                 );
               })}
@@ -245,9 +248,12 @@ function SlotRow({
                   return (
                     <View key={cat.id} style={{ gap: 4 }}>
                       <View style={[styles.catChip, { alignSelf: "flex-start", borderColor: cat.color || colors.primary }]}>
-                        <ThemedText style={{ fontSize: 10, color: cat.color || colors.primary, fontWeight: "600" }}>
-                          {cat.icon} {cat.name}
-                        </ThemedText>
+                        <Row style={{ gap: 4, alignItems: 'center' }}>
+                          <CategoryIcon icon={cat.icon} size={10} />
+                          <ThemedText style={{ fontSize: 10, color: cat.color || colors.primary, fontWeight: "600" }}>
+                            {cat.name}
+                          </ThemedText>
+                        </Row>
                       </View>
                       <ThemedText style={{ fontSize: 12, fontWeight: "700", color: colors.text }} numberOfLines={2}>
                         {preview?.nextTopic?.title ?? "All topics complete"}

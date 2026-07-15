@@ -1,17 +1,31 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View, Alert, Platform } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Button, Card, Chip, EmptyState, Input, ProgressBar, Row, SectionHeader } from '@/components/ui';
-import { Spacing } from '@/constants/theme';
+import { Button, Card, Chip, EmptyState, Input, ProgressBar, Row, SectionHeader, CategoryIcon } from '@/components/ui';
+import { Spacing, Radii } from '@/constants/theme';
 import { categoryCompletionPct } from '@/lib/roadmap';
 import { useAppStore } from '@/store/useAppStore';
 import { Category } from '@/types';
 
 const PALETTE = ['#2563EB', '#D97706', '#059669', '#DC2626', '#7C3AED', '#DB2777', '#0891B2'];
 const ICONS = ['📘', '🧠', '💬', '💻', '🏋️', '🎯', '🎨'];
+
+function BrandIconPreview({ slug, size = 14 }: { slug: string; size?: number }) {
+  const url = `https://thesvg.org/icons/${slug}/default.svg`;
+  if (Platform.OS === 'web') {
+    return (
+      <img
+        src={url}
+        style={{ width: size, height: size, objectFit: 'contain', marginRight: 4 }}
+        alt=""
+      />
+    );
+  }
+  return <Text style={{ fontSize: size, marginRight: 4 }}>🏷️</Text>;
+}
 
 export default function CategoriesScreen() {
   const store = useAppStore();
@@ -26,6 +40,86 @@ export default function CategoriesScreen() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
+
+  // theSVG brand icon search states
+  const [brandSearch, setBrandSearch] = useState('');
+  const [loadingBrand, setLoadingBrand] = useState(false);
+  const [brandPreviewSvg, setBrandPreviewSvg] = useState('');
+  const [searchResults, setSearchResults] = useState<{ slug: string; title: string }[]>([]);
+
+  const handleBrandSearchChange = async (text: string) => {
+    setBrandSearch(text);
+    if (text.trim().length < 2) {
+      setSearchResults([]);
+      return;
+    }
+
+    try {
+      const response = await fetch(`https://thesvg.org/api/icons?q=${encodeURIComponent(text.trim())}&limit=8`);
+      if (response.ok) {
+        const data = await response.json();
+        if (Array.isArray(data)) {
+          setSearchResults(data.map((item: any) => ({
+            slug: item.slug || item.id || '',
+            title: item.title || item.name || '',
+          })));
+        } else if (data && Array.isArray(data.icons)) {
+          setSearchResults(data.icons.map((item: any) => ({
+            slug: item.slug || item.id || '',
+            title: item.title || item.name || '',
+          })));
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to fetch search results:", err);
+    }
+  };
+
+  const applySearchedIcon = async (slug: string) => {
+    setLoadingBrand(true);
+    try {
+      const response = await fetch(`https://thesvg.org/icons/${slug}/default.svg`);
+      if (response.ok) {
+        const svgXml = await response.text();
+        if (editingId) {
+          setEditIcon(svgXml);
+        } else {
+          setIcon(svgXml);
+        }
+        setBrandSearch('');
+        setSearchResults([]);
+        setBrandPreviewSvg('');
+      } else {
+        Alert.alert('Error', 'Failed to retrieve icon from CDN.');
+      }
+    } catch (err) {
+      console.warn("Failed to fetch brand SVG:", err);
+      Alert.alert('Error', 'Failed to retrieve icon from CDN.');
+    } finally {
+      setLoadingBrand(false);
+    }
+  };
+
+  const fetchBrandIcon = async (slug: string, isEdit: boolean) => {
+    if (!slug.trim()) return;
+    setLoadingBrand(true);
+    try {
+      const response = await fetch(`https://thesvg.org/icons/${slug.toLowerCase().trim()}/default.svg`);
+      if (response.ok) {
+        const svgXml = await response.text();
+        setBrandPreviewSvg(svgXml);
+      } else {
+        setBrandPreviewSvg('');
+        Alert.alert('Not Found', `Brand "${slug}" was not found on thesvg.org.`);
+      }
+    } catch (err) {
+      console.warn("Failed to fetch from thesvg CDN:", err);
+      setBrandPreviewSvg('');
+      Alert.alert('Error', 'Failed to connect to thesvg.org CDN.');
+    } finally {
+      setLoadingBrand(false);
+    }
+  };
   const [editColor, setEditColor] = useState(PALETTE[0]);
   const [editIcon, setEditIcon] = useState(ICONS[0]);
   const [editPace, setEditPace] = useState('60');
@@ -112,7 +206,67 @@ export default function CategoriesScreen() {
                 <Chip key={i} label={i} selected={i === icon} onPress={() => setIcon(i)} />
               ))}
             </Row>
-            <Button title="Create category" onPress={add} disabled={!name.trim()} />
+            <Row style={{ marginTop: 4, gap: 8, alignItems: 'center' }}>
+              <View style={{ flex: 1 }}>
+                <Input
+                  value={brandSearch}
+                  onChangeText={handleBrandSearchChange}
+                  placeholder="Search brand icon (e.g. leet)"
+                />
+              </View>
+              <Button
+                small
+                title={loadingBrand ? "..." : "Get SVG"}
+                onPress={() => fetchBrandIcon(brandSearch, false)}
+              />
+            </Row>
+            {searchResults.length > 0 && (
+              <View style={{ marginTop: 4, marginBottom: 8 }}>
+                <ThemedText type="small" themeColor="textSecondary" style={{ marginBottom: 4 }}>
+                  Matching brand icons (tap to apply):
+                </ThemedText>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: 'row', gap: 6 }}>
+                  {searchResults.map((result) => (
+                    <TouchableOpacity
+                      key={result.slug}
+                      onPress={() => applySearchedIcon(result.slug)}
+                      style={{
+                        paddingHorizontal: Spacing.three,
+                        paddingVertical: Spacing.one + 2,
+                        borderRadius: Radii.pill,
+                        backgroundColor: '#EEF2F6',
+                        borderColor: '#4F46E5',
+                        borderWidth: 1,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <BrandIconPreview slug={result.slug} size={14} />
+                      <ThemedText style={{ fontSize: 12, fontWeight: '700', color: '#4F46E5' }}>
+                        {result.title}
+                      </ThemedText>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+            {brandPreviewSvg && (
+              <Row style={{ gap: 8, alignItems: 'center', marginTop: 4 }}>
+                <ThemedText type="small">Preview:</ThemedText>
+                <CategoryIcon icon={brandPreviewSvg} size={24} />
+                <Button
+                  small
+                  variant="secondary"
+                  title="Apply SVG"
+                  onPress={() => {
+                    setIcon(brandPreviewSvg);
+                    setBrandPreviewSvg('');
+                    setBrandSearch('');
+                  }}
+                />
+              </Row>
+            )}
+            <Button style={{ marginTop: 8 }} title="Create category" onPress={add} disabled={!name.trim()} />
           </Card>
         ) : null}
 
@@ -142,7 +296,67 @@ export default function CategoriesScreen() {
                         <Chip key={i} label={i} selected={i === editIcon} onPress={() => setEditIcon(i)} />
                       ))}
                     </Row>
-                    <Row style={{ gap: Spacing.two, marginTop: 4 }}>
+                    <Row style={{ marginTop: 4, gap: 8, alignItems: 'center' }}>
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          value={brandSearch}
+                          onChangeText={handleBrandSearchChange}
+                          placeholder="Search brand icon (e.g. leet)"
+                        />
+                      </View>
+                      <Button
+                        small
+                        title={loadingBrand ? "..." : "Get SVG"}
+                        onPress={() => fetchBrandIcon(brandSearch, true)}
+                      />
+                    </Row>
+                    {searchResults.length > 0 && (
+                      <View style={{ marginTop: 4, marginBottom: 8 }}>
+                        <ThemedText type="small" themeColor="textSecondary" style={{ marginBottom: 4 }}>
+                          Matching brand icons (tap to apply):
+                        </ThemedText>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: 'row', gap: 6 }}>
+                          {searchResults.map((result) => (
+                            <TouchableOpacity
+                              key={result.slug}
+                              onPress={() => applySearchedIcon(result.slug)}
+                              style={{
+                                paddingHorizontal: Spacing.three,
+                                paddingVertical: Spacing.one + 2,
+                                borderRadius: Radii.pill,
+                                backgroundColor: '#EEF2F6',
+                                borderColor: '#4F46E5',
+                                borderWidth: 1,
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                              }}
+                            >
+                              <BrandIconPreview slug={result.slug} size={14} />
+                              <ThemedText style={{ fontSize: 12, fontWeight: '700', color: '#4F46E5' }}>
+                                {result.title}
+                              </ThemedText>
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      </View>
+                    )}
+                    {brandPreviewSvg && (
+                      <Row style={{ gap: 8, alignItems: 'center', marginTop: 4 }}>
+                        <ThemedText type="small">Preview:</ThemedText>
+                        <CategoryIcon icon={brandPreviewSvg} size={24} />
+                        <Button
+                          small
+                          variant="secondary"
+                          title="Apply SVG"
+                          onPress={() => {
+                            setEditIcon(brandPreviewSvg);
+                            setBrandPreviewSvg('');
+                            setBrandSearch('');
+                          }}
+                        />
+                      </Row>
+                    )}
+                    <Row style={{ gap: Spacing.two, marginTop: 8 }}>
                       <Button title="Cancel" variant="ghost" onPress={() => setEditingId(null)} />
                       <Button title="Save Changes" onPress={saveEdit} disabled={!editName.trim()} />
                     </Row>
@@ -154,7 +368,7 @@ export default function CategoriesScreen() {
                     >
                       <Row style={{ justifyContent: 'space-between' }}>
                         <Row>
-                          <ThemedText style={{ fontSize: 18 }}>{category.icon}</ThemedText>
+                          <CategoryIcon icon={category.icon} size={18} />
                           <ThemedText type="smallBold">{category.name}</ThemedText>
                         </Row>
                         <ThemedText type="small" themeColor="textSecondary">

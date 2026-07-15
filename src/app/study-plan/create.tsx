@@ -5,7 +5,7 @@ import {
 import { useRouter } from "expo-router";
 import { ThemedView } from "@/components/themed-view";
 import { ThemedText } from "@/components/themed-text";
-import { Card, Button, Input, Row } from "@/components/ui";
+import { Card, Button, Input, Row, AIButton } from "@/components/ui";
 import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { useAppStore } from "@/store/useAppStore";
@@ -384,28 +384,11 @@ export default function CreateStudyPlanScreen() {
                 placeholder={`e.g. "I wake up at 7am. I'm preparing for DSA in 3 months. I study best in mornings. I need 3 hrs for coding, 1 hr for theory, evening revision. Weekends extra 1 hour."`}
               />
 
-              <TouchableOpacity
+              <AIButton
+                title="Generate Smart Slots"
                 onPress={generateSmartSlots}
-                disabled={isGenerating}
-                style={[
-                  styles.generateBtn,
-                  {
-                    backgroundColor: isGenerating ? colors.border : colors.primary,
-                    opacity: isGenerating ? 0.7 : 1,
-                  },
-                ]}
-              >
-                {isGenerating ? (
-                  <Row style={{ gap: 8, justifyContent: "center" }}>
-                    <ActivityIndicator size="small" color="#FFF" />
-                    <ThemedText style={{ color: "#FFF", fontWeight: "700" }}>Generating...</ThemedText>
-                  </Row>
-                ) : (
-                  <ThemedText style={{ color: "#FFF", fontWeight: "700", textAlign: "center" }}>
-                    ✨ Generate Smart Slots
-                  </ThemedText>
-                )}
-              </TouchableOpacity>
+                loading={isGenerating}
+              />
 
               {aiPlanSummary ? (
                 <View style={[styles.summaryBadge, { backgroundColor: colors.success + "18", borderColor: colors.success + "44" }]}>

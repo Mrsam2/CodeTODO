@@ -19,6 +19,8 @@ const RoadmapNodeSchema = new mongoose.Schema({
   status: { type: String, enum: ['locked', 'pending', 'in_progress', 'done'], default: 'pending' },
   parentId: { type: String, default: null },
   order: { type: Number, default: 0 },
+  startDate: { type: String, default: null },
+  completeDate: { type: String, default: null },
   createdAt: { type: Number, default: Date.now },
 }, { _id: false });
 

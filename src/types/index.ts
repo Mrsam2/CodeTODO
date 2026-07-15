@@ -21,6 +21,8 @@ export interface RoadmapNode {
   status: NodeStatus;
   parentId: string | null;
   order: number;
+  startDate?: string | null;
+  completeDate?: string | null;
   createdAt: number;
 }
 

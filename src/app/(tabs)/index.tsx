@@ -5,7 +5,7 @@ import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
 import {
   Button, Card, Input, Row, SectionHeader, EmptyState,
-  DateStrip, SegmentedControl, CheckRow,
+  DateStrip, SegmentedControl, CheckRow, CategoryIcon, AIButton,
 } from '@/components/ui';
 import { Spacing, Radii } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -58,6 +58,8 @@ export default function TodayScreen() {
   const NestableDraggableFlatList: any = dragLib?.NestableDraggableFlatList;
   const NestableScrollContainer: any = dragLib?.NestableScrollContainer;
   const [quickAddText, setQuickAddText] = useState('');
+  const [quickStartTime, setQuickStartTime] = useState('');
+  const [quickEndTime, setQuickEndTime] = useState('');
   const [statusTab, setStatusTab] = useState('todo');
   const today = todayISO();
   const [selectedDate, setSelectedDate] = useState(today);
@@ -91,6 +93,24 @@ export default function TodayScreen() {
 
   const todoListItems = filteredTodos;
 
+  const topicsOnTodoDate = useMemo(() => {
+    if (!selectedTodo || !selectedTodo.dueDate) return [];
+    return store.roadmapNodes.filter((node) => {
+      if (node.categoryId !== selectedTodo.categoryId) return false;
+      const dateStr = selectedTodo.dueDate;
+      if (node.startDate && node.completeDate) {
+        return dateStr >= node.startDate && dateStr <= node.completeDate;
+      }
+      if (node.completeDate) {
+        return dateStr === node.completeDate;
+      }
+      if (node.startDate) {
+        return dateStr === node.startDate;
+      }
+      return false;
+    });
+  }, [selectedTodo, store.roadmapNodes]);
+
   const totalTodos = dateTodos.length;
   const doneTodos = dateTodos.filter((t) => t.status === 'done').length;
   const completionPct = totalTodos === 0 ? 0 : Math.round((doneTodos / totalTodos) * 100);
@@ -99,10 +119,16 @@ export default function TodayScreen() {
 
   const addQuickTodo = () => {
     if (!quickAddText.trim()) return;
+
+    let fullTitle = quickAddText.trim();
+    if (quickStartTime.trim() && quickEndTime.trim()) {
+      fullTitle = `${fullTitle} ${quickStartTime.trim()} - ${quickEndTime.trim()}`;
+    }
+
     store.addManualTodo({
       categoryId: store.categories[0]?.id || '',
       roadmapNodeId: null,
-      title: quickAddText.trim(),
+      title: fullTitle,
       description: '',
       status: 'pending',
       priority: 'medium',
@@ -111,7 +137,10 @@ export default function TodayScreen() {
       shiftCount: 0,
       checklist: [],
     });
+
     setQuickAddText('');
+    setQuickStartTime('');
+    setQuickEndTime('');
   };
 
   const handleToggleTodo = async (todo: Todo) => {
@@ -173,7 +202,7 @@ export default function TodayScreen() {
       ? store.roadmapNodes.find((n) => n.id === todo.roadmapNodeId)
       : undefined;
     const slot = todo.timeSlotId ? timeSlotById.get(todo.timeSlotId) : undefined;
-    const slotRange = formatSlotRange(slot?.startTime, slot?.endTime);
+    const slotRange = slot ? formatSlotRange(slot.startTime, slot.endTime) : todo.description;
     const subtitleParts: string[] = slotRange ? [slotRange] : [];
     if (node && node.title !== todo.title) {
       subtitleParts.push(`↳ ${node.title}`);
@@ -220,7 +249,9 @@ export default function TodayScreen() {
             const node = todo.roadmapNodeId
               ? store.roadmapNodes.find((n) => n.id === todo.roadmapNodeId)
               : undefined;
-            const subtitleParts: string[] = [];
+            const slot = todo.timeSlotId ? timeSlotById.get(todo.timeSlotId) : undefined;
+            const slotRange = slot ? formatSlotRange(slot.startTime, slot.endTime) : todo.description;
+            const subtitleParts: string[] = slotRange ? [slotRange] : [];
             if (node && node.title !== todo.title) {
               subtitleParts.push(`↳ ${node.title}`);
             }
@@ -270,11 +301,19 @@ export default function TodayScreen() {
     if (Platform.OS === 'web') {
       return (
         <Card>
-          <Row style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+          <Row style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.one }}>
             <ThemedText type="bodyBold">To do</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
-              Drag to reorder is available on mobile
-            </ThemedText>
+            <Row style={{ gap: Spacing.two, alignItems: 'center' }}>
+              <Button
+                small
+                variant="secondary"
+                title="⏱ Auto Arrange"
+                onPress={() => store.autoArrangeTodosByTime(selectedDate)}
+              />
+              <ThemedText type="small" themeColor="textSecondary">
+                Drag to reorder is available on mobile
+              </ThemedText>
+            </Row>
           </Row>
           <View>
             {todoListItems.map((todo) => {
@@ -283,7 +322,7 @@ export default function TodayScreen() {
                 ? store.roadmapNodes.find((n) => n.id === todo.roadmapNodeId)
                 : undefined;
               const slot = todo.timeSlotId ? timeSlotById.get(todo.timeSlotId) : undefined;
-              const slotRange = formatSlotRange(slot?.startTime, slot?.endTime);
+              const slotRange = slot ? formatSlotRange(slot.startTime, slot.endTime) : todo.description;
               const subtitleParts: string[] = slotRange ? [slotRange] : [];
               if (node && node.title !== todo.title) {
                 subtitleParts.push(`↳ ${node.title}`);
@@ -415,12 +454,27 @@ export default function TodayScreen() {
             onChangeText={setQuickAddText}
             placeholder="Add a quick todo…"
           />
-          <Row style={{ marginTop: 8, gap: 8 }}>
+          <Row style={{ gap: Spacing.two, marginTop: Spacing.two }}>
+            <View style={{ flex: 1 }}>
+              <Input
+                value={quickStartTime}
+                onChangeText={setQuickStartTime}
+                placeholder="Start (e.g. 8:00 AM)"
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Input
+                value={quickEndTime}
+                onChangeText={setQuickEndTime}
+                placeholder="End (e.g. 9:30 AM)"
+              />
+            </View>
+          </Row>
+          <Row style={{ marginTop: 8, gap: 8, alignItems: 'center' }}>
             <Button title="Add" onPress={addQuickTodo} disabled={!quickAddText.trim()} />
-            <Button
+            <AIButton
               title="Generate from roadmap"
               onPress={() => store.generateToday()}
-              variant="secondary"
             />
           </Row>
         </Card>
@@ -513,6 +567,19 @@ export default function TodayScreen() {
                       ? store.roadmapNodes.find((node) => node.id === selectedTodo.roadmapNodeId)?.title || 'Topic not found'
                       : 'Manual todo'}
                   </ThemedText>
+
+                  {topicsOnTodoDate.length > 0 && (
+                    <>
+                      <ThemedText type="small" themeColor="textSecondary" style={{ marginTop: 6 }}>Topics to cover on this date</ThemedText>
+                      <View style={{ gap: 4, marginTop: 2 }}>
+                        {topicsOnTodoDate.map((topic) => (
+                          <ThemedText key={topic.id} type="bodyBold" style={{ color: '#4F46E5' }}>
+                            📚 {topic.title}
+                          </ThemedText>
+                        ))}
+                      </View>
+                    </>
+                  )}
 
                   <ThemedText type="small" themeColor="textSecondary" style={{ marginTop: 6 }}>Description</ThemedText>
                   <ThemedText>

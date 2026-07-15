@@ -8,6 +8,7 @@ import {
   ViewStyle,
   TextStyle,
 } from 'react-native';
+import { CategoryIcon } from './CategoryIcon';
 import { Spacing, Colors, Typography, Radii, Shadow } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -444,7 +445,7 @@ export function CheckRow({
           style={check.mainRow}
           activeOpacity={onLabelPress ? 0.7 : 1}
         >
-          {emoji ? <Text style={{ fontSize: 16 }}>{emoji}</Text> : null}
+          {emoji ? <CategoryIcon icon={emoji} size={16} /> : null}
           <View style={{ flex: 1 }}>
             <Text
               style={[
@@ -492,7 +493,7 @@ export function CheckRow({
         style={check.mainRow}
         activeOpacity={onLabelPress ? 0.7 : 1}
       >
-        {emoji ? <Text style={{ fontSize: 16 }}>{emoji}</Text> : null}
+        {emoji ? <CategoryIcon icon={emoji} size={16} /> : null}
         <View style={{ flex: 1 }}>
           <Text
             style={[
@@ -582,3 +583,6 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
 });
+
+export { CategoryIcon };
+export { AIButton } from './AIButton';
