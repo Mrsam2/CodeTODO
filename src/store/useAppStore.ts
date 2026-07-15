@@ -1,6 +1,6 @@
-import { create } from 'zustand';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { persist } from 'zustand/middleware';
+import { create } from "zustand";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { persist } from "zustand/middleware";
 import {
   Category,
   RoadmapNode,
@@ -17,7 +17,7 @@ import {
   StudyPlan,
   SlotTemplate,
   AISuggestion,
-} from '@/types';
+} from "@/types";
 import {
   traversalOrder,
   recomputeStatuses,
@@ -26,13 +26,24 @@ import {
   childrenOf,
   subtreeIds,
   categoryCompletionPct,
-} from '@/lib/roadmap';
-import { generateDailyTodos } from '@/lib/scheduler';
-import { runReschedule } from '@/lib/reschedule';
-import { categoryReports, dayStats, streak, weaknesses, CategoryReport } from '@/lib/analytics';
-import { todayISO, addDays, slotDurationMins } from '@/lib/dates';
-import { generateId } from '@/lib/id';
-import { buildSuggestionsPromptPayload, pickNodeForSlot, todaySlots, timeToMins } from '@/lib/timetable';
+} from "@/lib/roadmap";
+import { generateDailyTodos } from "@/lib/scheduler";
+import { runReschedule } from "@/lib/reschedule";
+import {
+  categoryReports,
+  dayStats,
+  streak,
+  weaknesses,
+  CategoryReport,
+} from "@/lib/analytics";
+import { todayISO, addDays, slotDurationMins } from "@/lib/dates";
+import { generateId } from "@/lib/id";
+import {
+  buildSuggestionsPromptPayload,
+  pickNodeForSlot,
+  todaySlots,
+  timeToMins,
+} from "@/lib/timetable";
 
 interface AppState {
   categories: Category[];
@@ -62,33 +73,44 @@ interface AppState {
   syncWithCloud: () => Promise<void>;
 
   // Category actions
-  addCategory: (cat: Omit<Category, 'id' | 'createdAt'>) => void;
+  addCategory: (cat: Omit<Category, "id" | "createdAt">) => void;
   updateCategory: (id: string, updates: Partial<Category>) => void;
   deleteCategory: (id: string) => void;
 
   // Roadmap actions
-  addRoadmapNode: (node: Omit<RoadmapNode, 'id' | 'createdAt'>) => void;
+  addRoadmapNode: (node: Omit<RoadmapNode, "id" | "createdAt">) => void;
   updateRoadmapNode: (id: string, updates: Partial<RoadmapNode>) => void;
   deleteRoadmapSubtree: (nodeId: string) => void;
-  moveRoadmapNode: (nodeId: string, newParentId: string | null, newOrder: number) => void;
+  moveRoadmapNode: (
+    nodeId: string,
+    newParentId: string | null,
+    newOrder: number,
+  ) => void;
   setNodeCompleted: (nodeId: string, completed: boolean) => void;
-  importGeneratedRoadmap: (categoryId: string, nested: NestedRoadmapNode[]) => void;
+  importGeneratedRoadmap: (
+    categoryId: string,
+    nested: NestedRoadmapNode[],
+  ) => void;
   generateAndImportRoadmap: (categoryId: string) => Promise<boolean>;
 
   // Day plan actions
   ensureDayPlan: (date: string) => void;
   addTimeSlot: (
     dayPlanId: string,
-    slot: Omit<Omit<TimeSlot, 'id'>, 'dayPlanId'>
+    slot: Omit<Omit<TimeSlot, "id">, "dayPlanId">,
   ) => void;
-  updateTimeSlot: (dayPlanId: string, slotId: string, updates: Partial<TimeSlot>) => void;
+  updateTimeSlot: (
+    dayPlanId: string,
+    slotId: string,
+    updates: Partial<TimeSlot>,
+  ) => void;
   deleteTimeSlot: (dayPlanId: string, slotId: string) => void;
 
   // Todo actions
-  addManualTodo: (todo: Omit<Todo, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  addManualTodo: (todo: Omit<Todo, "id" | "createdAt" | "updatedAt">) => void;
   updateTodo: (id: string, updates: Partial<Todo>) => void;
   reorderTodos: (date: string, orderedIds: string[]) => void;
-  setTodoStatus: (id: string, status: Todo['status']) => void;
+  setTodoStatus: (id: string, status: Todo["status"]) => void;
   toggleChecklistItem: (todoId: string, itemId: string) => void;
   deleteTodo: (id: string) => void;
   /** Does this todo's roadmap topic fit inside its assigned slot? */
@@ -105,23 +127,30 @@ interface AppState {
   runRescheduleNow: () => void;
 
   // Vault actions
-  addNote: (note: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  addNote: (note: Omit<Note, "id" | "createdAt" | "updatedAt">) => void;
   updateNote: (id: string, updates: Partial<Note>) => void;
   deleteNote: (id: string) => void;
-  addLink: (link: Omit<SavedLink, 'id' | 'createdAt'>) => void;
+  addLink: (link: Omit<SavedLink, "id" | "createdAt">) => void;
   deleteLink: (id: string) => void;
-  addFutureIdea: (idea: Omit<FutureIdea, 'id' | 'createdAt'>) => void;
+  addFutureIdea: (idea: Omit<FutureIdea, "id" | "createdAt">) => void;
   deleteFutureIdea: (id: string) => void;
 
   // Settings
   updateSettings: (updates: Partial<Settings>) => void;
 
   // Timetable actions
-  createStudyPlan: (plan: Omit<StudyPlan, 'id' | 'createdAt'>) => string;
-  updateStudyPlan: (id: string, updates: Partial<Omit<StudyPlan, 'id' | 'createdAt'>>) => void;
+  createStudyPlan: (plan: Omit<StudyPlan, "id" | "createdAt">) => string;
+  updateStudyPlan: (
+    id: string,
+    updates: Partial<Omit<StudyPlan, "id" | "createdAt">>,
+  ) => void;
   deleteStudyPlan: (id: string) => void;
-  addSlotTemplate: (template: Omit<SlotTemplate, 'id'>) => string;
-  updateSlotTemplate: (planId: string, slotId: string, updates: Partial<SlotTemplate>) => void;
+  addSlotTemplate: (template: Omit<SlotTemplate, "id">) => string;
+  updateSlotTemplate: (
+    planId: string,
+    slotId: string,
+    updates: Partial<SlotTemplate>,
+  ) => void;
   deleteSlotTemplate: (planId: string, slotId: string) => void;
   generateAISuggestions: (studyPlanId: string) => Promise<void>;
   allocateTodosFromPlan: (studyPlanId: string, date: string) => void;
@@ -137,9 +166,11 @@ const defaultSettings: Settings = {
   slotGranularityMins: 30,
   gracePeriodMins: 30,
   streakTargetPct: 80,
-  dayStartTime: '06:00',
-  dayEndTime: '23:00',
-  aiBackendUrl: process.env.EXPO_PUBLIC_AI_BACKEND_URL || 'http://localhost:8787',
+  dayStartTime: "06:00",
+  dayEndTime: "23:00",
+  aiBackendUrl:
+    process.env.EXPO_PUBLIC_AI_BACKEND_URL ||
+    "https://code-todo-gq2y.vercel.app",
   notificationsEnabled: false,
   onboardingComplete: false,
 };
@@ -157,7 +188,10 @@ function sortTodosByOrder(todos: Todo[]) {
 
 function nextTodoOrder(todos: Todo[], dueDate: string) {
   const relevant = todos.filter((todo) => todo.dueDate === dueDate);
-  const highest = relevant.reduce((max, todo) => Math.max(max, todoSortValue(todo)), -1);
+  const highest = relevant.reduce(
+    (max, todo) => Math.max(max, todoSortValue(todo)),
+    -1,
+  );
   return highest + 1;
 }
 
@@ -187,14 +221,17 @@ export const useAppStore = create<AppState>()(
       // Auth Actions
       login: async (email, password) => {
         try {
-          const response = await fetch(`${get().settings.aiBackendUrl}/api/auth/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password }),
-          });
+          const response = await fetch(
+            `${get().settings.aiBackendUrl}/api/auth/login`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ email, password }),
+            },
+          );
           const data = await response.json();
           if (!response.ok) {
-            throw new Error(data.error || 'Login failed');
+            throw new Error(data.error || "Login failed");
           }
           set({ token: data.token, user: data.user, deletedIds: [] });
           // Fetch initial data after login
@@ -202,20 +239,23 @@ export const useAppStore = create<AppState>()(
           return null;
         } catch (error: any) {
           console.error(error);
-          return error.message || 'Login failed';
+          return error.message || "Login failed";
         }
       },
 
       signup: async (email, password) => {
         try {
-          const response = await fetch(`${get().settings.aiBackendUrl}/api/auth/signup`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password }),
-          });
+          const response = await fetch(
+            `${get().settings.aiBackendUrl}/api/auth/signup`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ email, password }),
+            },
+          );
           const data = await response.json();
           if (!response.ok) {
-            throw new Error(data.error || 'Signup failed');
+            throw new Error(data.error || "Signup failed");
           }
           set({ token: data.token, user: data.user, deletedIds: [] });
           // Sync fresh state (which uploads any local offline onboarding details!)
@@ -223,7 +263,7 @@ export const useAppStore = create<AppState>()(
           return null;
         } catch (error: any) {
           console.error(error);
-          return error.message || 'Signup failed';
+          return error.message || "Signup failed";
         }
       },
 
@@ -254,27 +294,30 @@ export const useAppStore = create<AppState>()(
 
         set({ isSyncing: true, syncPending: false });
         try {
-          const response = await fetch(`${state.settings.aiBackendUrl}/api/sync`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${state.token}`,
+          const response = await fetch(
+            `${state.settings.aiBackendUrl}/api/sync`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${state.token}`,
+              },
+              body: JSON.stringify({
+                categories: state.categories,
+                roadmapNodes: state.roadmapNodes,
+                todos: state.todos,
+                dayPlans: state.dayPlans,
+                notes: state.notes,
+                savedLinks: state.savedLinks,
+                futureIdeas: state.futureIdeas,
+                shiftLogs: state.shiftLogs,
+                studyPlans: state.studyPlans,
+                aiSuggestions: state.aiSuggestions,
+                settings: state.settings,
+                deletedIds: state.deletedIds,
+              }),
             },
-            body: JSON.stringify({
-              categories: state.categories,
-              roadmapNodes: state.roadmapNodes,
-              todos: state.todos,
-              dayPlans: state.dayPlans,
-              notes: state.notes,
-              savedLinks: state.savedLinks,
-              futureIdeas: state.futureIdeas,
-              shiftLogs: state.shiftLogs,
-              studyPlans: state.studyPlans,
-              aiSuggestions: state.aiSuggestions,
-              settings: state.settings,
-              deletedIds: state.deletedIds,
-            }),
-          });
+          );
 
           if (response.ok) {
             const data = await response.json();
@@ -298,7 +341,7 @@ export const useAppStore = create<AppState>()(
             set({ deletedIds: [] }); // Clear deletedIds after successful sync
           }
         } catch (error) {
-          console.warn('Data Sync failed:', error);
+          console.warn("Data Sync failed:", error);
         } finally {
           set({ isSyncing: false });
           if (get().syncPending) {
@@ -314,16 +357,19 @@ export const useAppStore = create<AppState>()(
         if (!category) return false;
 
         try {
-          const response = await fetch(`${state.settings.aiBackendUrl}/generate-roadmap`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              categoryName: category.name,
-              description: category.description || 'General learning',
-              userLevel: 'beginner',
-              targetPacePerDayMins: category.targetPacePerDayMins || 60,
-            }),
-          });
+          const response = await fetch(
+            `${state.settings.aiBackendUrl}/generate-roadmap`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                categoryName: category.name,
+                description: category.description || "General learning",
+                userLevel: "beginner",
+                targetPacePerDayMins: category.targetPacePerDayMins || 60,
+              }),
+            },
+          );
 
           if (!response.ok) {
             throw new Error(`HTTP error ${response.status}`);
@@ -336,7 +382,7 @@ export const useAppStore = create<AppState>()(
           }
           return false;
         } catch (error) {
-          console.warn('Failed to generate roadmap:', error);
+          console.warn("Failed to generate roadmap:", error);
           return false;
         }
       },
@@ -345,7 +391,7 @@ export const useAppStore = create<AppState>()(
       addCategory: (cat) => {
         const newCat: Category = {
           ...cat,
-          id: generateId('cat'),
+          id: generateId("cat"),
           createdAt: Date.now(),
         };
         set((state) => ({
@@ -356,16 +402,24 @@ export const useAppStore = create<AppState>()(
 
       updateCategory: (id, updates) => {
         set((state) => ({
-          categories: state.categories.map((c) => (c.id === id ? { ...c, ...updates } : c)),
+          categories: state.categories.map((c) =>
+            c.id === id ? { ...c, ...updates } : c,
+          ),
         }));
         get().syncWithCloud();
       },
 
       deleteCategory: (id) => {
         set((state) => {
-          const subnodes = state.roadmapNodes.filter((n) => n.categoryId === id);
+          const subnodes = state.roadmapNodes.filter(
+            (n) => n.categoryId === id,
+          );
           const subtodos = state.todos.filter((t) => t.categoryId === id);
-          const toDelete = [id, ...subnodes.map((n) => n.id), ...subtodos.map((t) => t.id)];
+          const toDelete = [
+            id,
+            ...subnodes.map((n) => n.id),
+            ...subtodos.map((t) => t.id),
+          ];
           return {
             categories: state.categories.filter((c) => c.id !== id),
             roadmapNodes: state.roadmapNodes.filter((n) => n.categoryId !== id),
@@ -380,7 +434,7 @@ export const useAppStore = create<AppState>()(
       addRoadmapNode: (node) => {
         const newNode: RoadmapNode = {
           ...node,
-          id: generateId('node'),
+          id: generateId("node"),
           createdAt: Date.now(),
         };
         set((state) => {
@@ -394,7 +448,7 @@ export const useAppStore = create<AppState>()(
       updateRoadmapNode: (id, updates) => {
         set((state) => {
           const nodes = state.roadmapNodes.map((n) =>
-            n.id === id ? { ...n, ...updates } : n
+            n.id === id ? { ...n, ...updates } : n,
           );
           const node = nodes.find((n) => n.id === id);
           if (!node) return { roadmapNodes: nodes };
@@ -410,13 +464,19 @@ export const useAppStore = create<AppState>()(
           const node = state.roadmapNodes.find((n) => n.id === nodeId);
           if (!node) return {};
           const toDelete = subtreeIds(state.roadmapNodes, nodeId);
-          const subtodos = state.todos.filter((t) => toDelete.includes(t.roadmapNodeId || ''));
+          const subtodos = state.todos.filter((t) =>
+            toDelete.includes(t.roadmapNodeId || ""),
+          );
           const idsDeleted = [...toDelete, ...subtodos.map((t) => t.id)];
-          let nodes = state.roadmapNodes.filter((n) => !toDelete.includes(n.id));
+          let nodes = state.roadmapNodes.filter(
+            (n) => !toDelete.includes(n.id),
+          );
           nodes = recomputeStatuses(nodes, node.categoryId);
           return {
             roadmapNodes: nodes,
-            todos: state.todos.filter((t) => !toDelete.includes(t.roadmapNodeId || '')),
+            todos: state.todos.filter(
+              (t) => !toDelete.includes(t.roadmapNodeId || ""),
+            ),
             deletedIds: [...state.deletedIds, ...idsDeleted],
           };
         });
@@ -453,7 +513,12 @@ export const useAppStore = create<AppState>()(
           const node = state.roadmapNodes.find((n) => n.id === nodeId);
           if (!node) return {};
           const nodes = state.roadmapNodes.map((n) =>
-            n.id === nodeId ? { ...n, status: completed ? ('done' as const) : ('pending' as const) } : n
+            n.id === nodeId
+              ? {
+                  ...n,
+                  status: completed ? ("done" as const) : ("pending" as const),
+                }
+              : n,
           );
           return {
             roadmapNodes: recomputeStatuses(nodes, node.categoryId),
@@ -478,7 +543,7 @@ export const useAppStore = create<AppState>()(
         set((state) => {
           if (state.dayPlans.some((dp) => dp.date === date)) return {};
           const newPlan: DayPlan = {
-            id: generateId('dp'),
+            id: generateId("dp"),
             date,
             dayStartTimeHHMM: state.settings.dayStartTime,
             dayEndTimeHHMM: state.settings.dayEndTime,
@@ -499,11 +564,11 @@ export const useAppStore = create<AppState>()(
                   ...dp,
                   timeSlots: [
                     ...dp.timeSlots,
-                    { ...slot, id: generateId('slot'), dayPlanId },
+                    { ...slot, id: generateId("slot"), dayPlanId },
                   ],
                   updatedAt: Date.now(),
                 }
-              : dp
+              : dp,
           ),
         }));
         get().syncWithCloud();
@@ -516,11 +581,11 @@ export const useAppStore = create<AppState>()(
               ? {
                   ...dp,
                   timeSlots: dp.timeSlots.map((s) =>
-                    s.id === slotId ? { ...s, ...updates } : s
+                    s.id === slotId ? { ...s, ...updates } : s,
                   ),
                   updatedAt: Date.now(),
                 }
-              : dp
+              : dp,
           ),
         }));
         get().syncWithCloud();
@@ -538,7 +603,7 @@ export const useAppStore = create<AppState>()(
                     timeSlots: dp.timeSlots.filter((s) => s.id !== slotId),
                     updatedAt: Date.now(),
                   }
-                : dp
+                : dp,
             ),
             todos: state.todos.filter((t) => t.timeSlotId !== slotId),
             deletedIds: [...state.deletedIds, ...idsDeleted],
@@ -551,7 +616,7 @@ export const useAppStore = create<AppState>()(
       addManualTodo: (todo) => {
         const newTodo: Todo = {
           ...todo,
-          id: generateId('todo'),
+          id: generateId("todo"),
           order: nextTodoOrder(get().todos, todo.dueDate),
           createdAt: Date.now(),
           updatedAt: Date.now(),
@@ -572,15 +637,15 @@ export const useAppStore = create<AppState>()(
                     ...t,
                     ...updates,
                     completedAt:
-                      nextStatus === 'done'
-                        ? updates.completedAt ?? t.completedAt ?? Date.now()
+                      nextStatus === "done"
+                        ? (updates.completedAt ?? t.completedAt ?? Date.now())
                         : updates.status
                           ? null
-                          : updates.completedAt ?? t.completedAt,
+                          : (updates.completedAt ?? t.completedAt),
                     updatedAt: Date.now(),
                   };
                 })()
-              : t
+              : t,
           ),
         }));
         get().syncWithCloud();
@@ -588,7 +653,9 @@ export const useAppStore = create<AppState>()(
 
       reorderTodos: (date, orderedIds) => {
         set((state) => {
-          const dateTodos = sortTodosByOrder(state.todos.filter((todo) => todo.dueDate === date));
+          const dateTodos = sortTodosByOrder(
+            state.todos.filter((todo) => todo.dueDate === date),
+          );
           const visibleIds = new Set(orderedIds);
           const draggedTodos = orderedIds
             .map((id) => dateTodos.find((todo) => todo.id === id))
@@ -596,18 +663,22 @@ export const useAppStore = create<AppState>()(
 
           let draggedIndex = 0;
           const reorderedDateTodos = dateTodos.map((todo) =>
-            visibleIds.has(todo.id) ? draggedTodos[draggedIndex++] : todo
+            visibleIds.has(todo.id) ? draggedTodos[draggedIndex++] : todo,
           );
 
           const orderById = new Map(
-            reorderedDateTodos.map((todo, index) => [todo.id, index])
+            reorderedDateTodos.map((todo, index) => [todo.id, index]),
           );
 
           return {
             todos: state.todos.map((todo) =>
               todo.dueDate === date
-                ? { ...todo, order: orderById.get(todo.id) ?? todoSortValue(todo), updatedAt: Date.now() }
-                : todo
+                ? {
+                    ...todo,
+                    order: orderById.get(todo.id) ?? todoSortValue(todo),
+                    updatedAt: Date.now(),
+                  }
+                : todo,
             ),
           };
         });
@@ -621,17 +692,27 @@ export const useAppStore = create<AppState>()(
 
           const updatedTodos = state.todos.map((t) =>
             t.id === id
-              ? { ...t, status, completedAt: status === 'done' ? Date.now() : null, updatedAt: Date.now() }
-              : t
+              ? {
+                  ...t,
+                  status,
+                  completedAt: status === "done" ? Date.now() : null,
+                  updatedAt: Date.now(),
+                }
+              : t,
           );
 
           // Auto-sync roadmap node when a category task is completed / un-completed
           if (todo.roadmapNodeId) {
-            const node = state.roadmapNodes.find((n) => n.id === todo.roadmapNodeId);
+            const node = state.roadmapNodes.find(
+              (n) => n.id === todo.roadmapNodeId,
+            );
             if (node) {
-              const newNodeStatus = status === 'done' ? ('done' as const) : ('pending' as const);
+              const newNodeStatus =
+                status === "done" ? ("done" as const) : ("pending" as const);
               const updatedNodes = state.roadmapNodes.map((n) =>
-                n.id === todo.roadmapNodeId ? { ...n, status: newNodeStatus } : n
+                n.id === todo.roadmapNodeId
+                  ? { ...n, status: newNodeStatus }
+                  : n,
               );
               return {
                 todos: updatedTodos,
@@ -649,7 +730,9 @@ export const useAppStore = create<AppState>()(
         const state = get();
         const todo = state.todos.find((t) => t.id === todoId);
         if (!todo || !todo.roadmapNodeId || !todo.timeSlotId) return true;
-        const node = state.roadmapNodes.find((n) => n.id === todo.roadmapNodeId);
+        const node = state.roadmapNodes.find(
+          (n) => n.id === todo.roadmapNodeId,
+        );
         if (!node) return true;
         const slot = state.dayPlans
           .find((dp) => dp.date === todo.dueDate)
@@ -667,7 +750,7 @@ export const useAppStore = create<AppState>()(
         // Nothing to negotiate: either genuinely finished, or not tied to a
         // roadmap topic at all (manual todo) — complete normally.
         if (fullyDone || !todo.roadmapNodeId) {
-          get().setTodoStatus(id, 'done');
+          get().setTodoStatus(id, "done");
           return;
         }
 
@@ -677,47 +760,68 @@ export const useAppStore = create<AppState>()(
         set((state) => ({
           todos: state.todos.map((t) =>
             t.id === id
-              ? { ...t, status: 'done' as const, completedAt: Date.now(), updatedAt: Date.now() }
-              : t
+              ? {
+                  ...t,
+                  status: "done" as const,
+                  completedAt: Date.now(),
+                  updatedAt: Date.now(),
+                }
+              : t,
           ),
         }));
 
-        const node = state.roadmapNodes.find((n) => n.id === todo.roadmapNodeId);
-        if (node && node.status !== 'done') {
-          get().updateRoadmapNode(node.id, { status: 'in_progress' });
+        const node = state.roadmapNodes.find(
+          (n) => n.id === todo.roadmapNodeId,
+        );
+        if (node && node.status !== "done") {
+          get().updateRoadmapNode(node.id, { status: "in_progress" });
         }
 
         const tomorrow = addDays(todo.dueDate, 1);
         get().ensureDayPlan(tomorrow);
 
         set((state) => {
-          const todayPlan = state.dayPlans.find((dp) => dp.date === todo.dueDate);
-          const currentSlot = todayPlan?.timeSlots.find((s) => s.id === todo.timeSlotId);
-          const tomorrowPlan = state.dayPlans.find((dp) => dp.date === tomorrow);
+          const todayPlan = state.dayPlans.find(
+            (dp) => dp.date === todo.dueDate,
+          );
+          const currentSlot = todayPlan?.timeSlots.find(
+            (s) => s.id === todo.timeSlotId,
+          );
+          const tomorrowPlan = state.dayPlans.find(
+            (dp) => dp.date === tomorrow,
+          );
           if (!tomorrowPlan) return {};
 
           let targetSlot = tomorrowPlan.timeSlots.find(
-            (s) => s.categoryId === todo.categoryId && s.type === 'study'
+            (s) => s.categoryId === todo.categoryId && s.type === "study",
           );
           let dayPlans = state.dayPlans;
 
           if (!targetSlot && currentSlot) {
-            targetSlot = { ...currentSlot, id: generateId('slot'), dayPlanId: tomorrowPlan.id };
+            targetSlot = {
+              ...currentSlot,
+              id: generateId("slot"),
+              dayPlanId: tomorrowPlan.id,
+            };
             const capturedSlot = targetSlot;
             dayPlans = dayPlans.map((dp) =>
               dp.id === tomorrowPlan.id
-                ? { ...dp, timeSlots: [...dp.timeSlots, capturedSlot], updatedAt: Date.now() }
-                : dp
+                ? {
+                    ...dp,
+                    timeSlots: [...dp.timeSlots, capturedSlot],
+                    updatedAt: Date.now(),
+                  }
+                : dp,
             );
           }
 
           const continuationTodo: Todo = {
-            id: generateId('todo'),
+            id: generateId("todo"),
             categoryId: todo.categoryId,
             roadmapNodeId: todo.roadmapNodeId,
             title: todo.title,
             description: todo.description,
-            status: 'pending',
+            status: "pending",
             priority: todo.priority,
             dueDate: tomorrow,
             timeSlotId: targetSlot ? targetSlot.id : null,
@@ -741,11 +845,11 @@ export const useAppStore = create<AppState>()(
               ? {
                   ...t,
                   checklist: t.checklist.map((item) =>
-                    item.id === itemId ? { ...item, done: !item.done } : item
+                    item.id === itemId ? { ...item, done: !item.done } : item,
                   ),
                   updatedAt: Date.now(),
                 }
-              : t
+              : t,
           ),
         }));
         get().syncWithCloud();
@@ -770,7 +874,7 @@ export const useAppStore = create<AppState>()(
             state.roadmapNodes,
             dayPlan,
             state.categories,
-            state.todos
+            state.todos,
           );
           set({ todos: result.todos });
           get().syncWithCloud();
@@ -779,7 +883,11 @@ export const useAppStore = create<AppState>()(
 
       runRescheduleNow: () => {
         const state = get();
-        const result = runReschedule(state.todos, state.dayPlans, state.settings.gracePeriodMins);
+        const result = runReschedule(
+          state.todos,
+          state.dayPlans,
+          state.settings.gracePeriodMins,
+        );
         set({
           todos: result.todos,
           shiftLogs: [...state.shiftLogs, ...result.shiftLogs],
@@ -792,7 +900,7 @@ export const useAppStore = create<AppState>()(
       addNote: (note) => {
         const newNote: Note = {
           ...note,
-          id: generateId('note'),
+          id: generateId("note"),
           createdAt: Date.now(),
           updatedAt: Date.now(),
         };
@@ -805,9 +913,7 @@ export const useAppStore = create<AppState>()(
       updateNote: (id, updates) => {
         set((state) => ({
           notes: state.notes.map((n) =>
-            n.id === id
-              ? { ...n, ...updates, updatedAt: Date.now() }
-              : n
+            n.id === id ? { ...n, ...updates, updatedAt: Date.now() } : n,
           ),
         }));
         get().syncWithCloud();
@@ -824,7 +930,7 @@ export const useAppStore = create<AppState>()(
       addLink: (link) => {
         const newLink: SavedLink = {
           ...link,
-          id: generateId('link'),
+          id: generateId("link"),
           createdAt: Date.now(),
         };
         set((state) => ({
@@ -844,7 +950,7 @@ export const useAppStore = create<AppState>()(
       addFutureIdea: (idea) => {
         const newIdea: FutureIdea = {
           ...idea,
-          id: generateId('idea'),
+          id: generateId("idea"),
           createdAt: Date.now(),
         };
         set((state) => ({
@@ -893,7 +999,7 @@ export const useAppStore = create<AppState>()(
       // --- Timetable Actions ---
 
       createStudyPlan: (planData) => {
-        const id = generateId('plan');
+        const id = generateId("plan");
         const newPlan: StudyPlan = {
           id,
           ...planData,
@@ -909,7 +1015,7 @@ export const useAppStore = create<AppState>()(
       updateStudyPlan: (id, updates) => {
         set((state) => ({
           studyPlans: state.studyPlans.map((p) =>
-            p.id === id ? { ...p, ...updates, updatedAt: Date.now() } : p
+            p.id === id ? { ...p, ...updates, updatedAt: Date.now() } : p,
           ),
         }));
         get().syncWithCloud();
@@ -918,20 +1024,26 @@ export const useAppStore = create<AppState>()(
       deleteStudyPlan: (id) => {
         set((state) => ({
           studyPlans: state.studyPlans.filter((p) => p.id !== id),
-          aiSuggestions: state.aiSuggestions.filter((s) => s.studyPlanId !== id),
+          aiSuggestions: state.aiSuggestions.filter(
+            (s) => s.studyPlanId !== id,
+          ),
           deletedIds: [...state.deletedIds, id],
         }));
         get().syncWithCloud();
       },
 
       addSlotTemplate: (template) => {
-        const id = generateId('slot');
+        const id = generateId("slot");
         const newSlot: SlotTemplate = { id, ...template };
         set((state) => ({
           studyPlans: state.studyPlans.map((p) =>
             p.id === template.studyPlanId
-              ? { ...p, slotTemplates: [...p.slotTemplates, newSlot], updatedAt: Date.now() }
-              : p
+              ? {
+                  ...p,
+                  slotTemplates: [...p.slotTemplates, newSlot],
+                  updatedAt: Date.now(),
+                }
+              : p,
           ),
         }));
         get().syncWithCloud();
@@ -945,11 +1057,11 @@ export const useAppStore = create<AppState>()(
               ? {
                   ...p,
                   slotTemplates: p.slotTemplates.map((s) =>
-                    s.id === slotId ? { ...s, ...updates } : s
+                    s.id === slotId ? { ...s, ...updates } : s,
                   ),
                   updatedAt: Date.now(),
                 }
-              : p
+              : p,
           ),
         }));
         get().syncWithCloud();
@@ -959,8 +1071,12 @@ export const useAppStore = create<AppState>()(
         set((state) => ({
           studyPlans: state.studyPlans.map((p) =>
             p.id === planId
-              ? { ...p, slotTemplates: p.slotTemplates.filter((s) => s.id !== slotId), updatedAt: Date.now() }
-              : p
+              ? {
+                  ...p,
+                  slotTemplates: p.slotTemplates.filter((s) => s.id !== slotId),
+                  updatedAt: Date.now(),
+                }
+              : p,
           ),
         }));
         get().syncWithCloud();
@@ -974,38 +1090,40 @@ export const useAppStore = create<AppState>()(
         const payload = buildSuggestionsPromptPayload(
           plan,
           state.roadmapNodes,
-          state.categories
+          state.categories,
         );
 
         try {
           const response = await fetch(
             `${state.settings.aiBackendUrl}/ai-suggestions`,
             {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
               body: JSON.stringify(payload),
-            }
+            },
           );
           if (!response.ok) throw new Error(`HTTP error ${response.status}`);
           const data = await response.json();
 
           const newSuggestion: AISuggestion = {
-            id: generateId('sug'),
+            id: generateId("sug"),
             studyPlanId,
             suggestions: data.suggestions ?? [],
-            overallMessage: data.overallMessage ?? '',
+            overallMessage: data.overallMessage ?? "",
             generatedAt: Date.now(),
           };
 
           set((state) => ({
             aiSuggestions: [
-              ...state.aiSuggestions.filter((s) => s.studyPlanId !== studyPlanId),
+              ...state.aiSuggestions.filter(
+                (s) => s.studyPlanId !== studyPlanId,
+              ),
               newSuggestion,
             ],
           }));
           get().syncWithCloud();
         } catch (err) {
-          console.warn('Failed to generate AI suggestions:', err);
+          console.warn("Failed to generate AI suggestions:", err);
         }
       },
 
@@ -1027,9 +1145,12 @@ export const useAppStore = create<AppState>()(
         if (!dayPlan) return;
 
         // Remove previously generated slots & todos from this plan so re-clicking is safe
-        const retainedSlots = dayPlan.timeSlots.filter((ts) => !(ts.slotTemplateId ?? '').startsWith(PREFIX));
+        const retainedSlots = dayPlan.timeSlots.filter(
+          (ts) => !(ts.slotTemplateId ?? "").startsWith(PREFIX),
+        );
         const retainedTodos = state.todos.filter(
-          (t) => !(t.dueDate === date && (t.timeSlotId ?? '').startsWith(PREFIX))
+          (t) =>
+            !(t.dueDate === date && (t.timeSlotId ?? "").startsWith(PREFIX)),
         );
 
         const newTimeSlots: TimeSlot[] = [];
@@ -1040,14 +1161,17 @@ export const useAppStore = create<AppState>()(
           const slotId = `${PREFIX}${tmpl.id}`;
 
           // Map slot type to TimeSlot type
-          const tsType: TimeSlot['type'] =
-            tmpl.slotType === 'break' ? 'break' :
-            tmpl.slotType === 'other'  ? 'other'  : 'study';
+          const tsType: TimeSlot["type"] =
+            tmpl.slotType === "break"
+              ? "break"
+              : tmpl.slotType === "other"
+                ? "other"
+                : "study";
 
           const timeSlot: TimeSlot = {
             id: slotId,
             dayPlanId: dayPlan.id,
-            categoryId: tmpl.categoryIds[0] ?? '',
+            categoryId: tmpl.categoryIds[0] ?? "",
             startTime: tmpl.startTime,
             endTime: tmpl.endTime,
             isLocked: false,
@@ -1058,43 +1182,52 @@ export const useAppStore = create<AppState>()(
           newTimeSlots.push(timeSlot);
 
           // Breaks get a schedule entry but no todo
-          if (tmpl.slotType === 'break') continue;
+          if (tmpl.slotType === "break") continue;
 
           let todoTitle: string;
           let todoCategoryId: string;
           let todoRoadmapNodeId: string | null = null;
-          let todoPriority: Todo['priority'] = 'medium';
+          let todoPriority: Todo["priority"] = "medium";
 
-          if (tmpl.categoryIds.length === 0 || tmpl.slotType === 'other') {
+          if (tmpl.categoryIds.length === 0 || tmpl.slotType === "other") {
             // Routine / daily habit slot (Exercise, Meditation, Wake Up, etc.)
             todoTitle = tmpl.label;
-            todoCategoryId = tmpl.categoryIds[0] ?? '';
-            todoPriority = 'medium';
+            todoCategoryId = tmpl.categoryIds[0] ?? "";
+            todoPriority = "medium";
           } else {
             // Study slot — pick next roadmap node for the assigned categories
-            const node = pickNodeForSlot(tmpl, state.roadmapNodes, tmpl.categoryIds);
+            const node = pickNodeForSlot(
+              tmpl,
+              state.roadmapNodes,
+              tmpl.categoryIds,
+            );
             if (node) {
               todoTitle = `${node.title}`;
               todoCategoryId = node.categoryId;
               todoRoadmapNodeId = node.id;
             } else {
               // Roadmap complete / no pending node — show a general review task
-              const cat = state.categories.find((c) => tmpl.categoryIds.includes(c.id));
-              todoTitle = `Review ${cat ? cat.name : 'Subject'}`;
-              todoCategoryId = tmpl.categoryIds[0] ?? '';
+              const cat = state.categories.find((c) =>
+                tmpl.categoryIds.includes(c.id),
+              );
+              todoTitle = `Review ${cat ? cat.name : "Subject"}`;
+              todoCategoryId = tmpl.categoryIds[0] ?? "";
             }
             todoPriority =
-              tmpl.slotType === 'big'      ? 'high'   :
-              tmpl.slotType === 'medium'   ? 'medium'  : 'low';
+              tmpl.slotType === "big"
+                ? "high"
+                : tmpl.slotType === "medium"
+                  ? "medium"
+                  : "low";
           }
 
           const todo: Todo = {
-            id: generateId('todo'),
+            id: generateId("todo"),
             categoryId: todoCategoryId,
             roadmapNodeId: todoRoadmapNodeId,
             title: todoTitle,
             description: `${tmpl.label} · ${tmpl.startTime}–${tmpl.endTime} (${tmpl.durationMins} min)`,
-            status: 'pending',
+            status: "pending",
             priority: todoPriority,
             dueDate: date,
             timeSlotId: slotId,
@@ -1108,12 +1241,14 @@ export const useAppStore = create<AppState>()(
 
         // Sort new slots chronologically
         const allSlots = [...retainedSlots, ...newTimeSlots].sort(
-          (a, b) => timeToMins(a.startTime) - timeToMins(b.startTime)
+          (a, b) => timeToMins(a.startTime) - timeToMins(b.startTime),
         );
 
         set((state) => ({
           dayPlans: state.dayPlans.map((dp) =>
-            dp.date === date ? { ...dp, timeSlots: allSlots, updatedAt: Date.now() } : dp
+            dp.date === date
+              ? { ...dp, timeSlots: allSlots, updatedAt: Date.now() }
+              : dp,
           ),
           todos: [...retainedTodos, ...newTodos],
         }));
@@ -1122,7 +1257,7 @@ export const useAppStore = create<AppState>()(
       },
     }),
     {
-      name: 'my-day-store-v1',
+      name: "my-day-store-v1",
       storage: {
         getItem: async (key) => {
           const item = await AsyncStorage.getItem(key);
@@ -1135,6 +1270,6 @@ export const useAppStore = create<AppState>()(
           await AsyncStorage.removeItem(key);
         },
       },
-    }
-  )
+    },
+  ),
 );
