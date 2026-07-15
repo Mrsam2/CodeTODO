@@ -120,7 +120,7 @@ const SettingsSchema = new mongoose.Schema({
   streakTargetPct: { type: Number, default: 80 },
   dayStartTime: { type: String, default: '06:00' },
   dayEndTime: { type: String, default: '23:00' },
-  aiBackendUrl: { type: String, default: 'http://localhost:8787' },
+  aiBackendUrl: { type: String, default: 'https://code-todo-gq2y.vercel.app' },
   notificationsEnabled: { type: Boolean, default: false },
   onboardingComplete: { type: Boolean, default: false },
 }, { _id: false });

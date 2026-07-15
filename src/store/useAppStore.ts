@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { persist } from "zustand/middleware";
-import { Alert } from "react-native";
+import { Alert, Platform } from "react-native";
 import {
   Category,
   RoadmapNode,
@@ -1508,5 +1508,25 @@ if (__DEV__) {
         });
       }
     }, 100);
+  }
+}
+
+// Self-healing check for remote production environment
+if (Platform.OS === 'web') {
+  const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+  if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1') {
+    setTimeout(() => {
+      const state = useAppStore.getState();
+      const currentUrl = state?.settings?.aiBackendUrl || '';
+      if (!currentUrl || currentUrl.includes('localhost') || currentUrl.includes('127.0.0.1')) {
+        const prodUrl = process.env.EXPO_PUBLIC_AI_BACKEND_URL || "https://code-todo-gq2y.vercel.app";
+        useAppStore.setState({
+          settings: {
+            ...state.settings,
+            aiBackendUrl: prodUrl,
+          }
+        });
+      }
+    }, 150);
   }
 }
