@@ -3,14 +3,30 @@
     "name": "My Day",
     "slug": "my-day",
     "version": "1.0.0",
-    "assetBundlePatterns": ["**/*"],
-    "platforms": ["ios", "android", "web"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
     "android": {
       "package": "com.teachingpariksha.myday"
     },
     "ios": {
       "bundleIdentifier": "com.teachingpariksha.myday"
     },
-    "plugins": ["expo-router"]
+    "plugins": [
+      "expo-router"
+    ],
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "7d1915eb-a25f-41ab-932c-ffe709ecacb8"
+      }
+    }
   }
 }
