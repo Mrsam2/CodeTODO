@@ -11,5 +11,6 @@
     "node_modules": true,
     ".expo": true,
     "dist": true
-  }
+  },
+  "java.compile.nullAnalysis.mode": "automatic"
 }
