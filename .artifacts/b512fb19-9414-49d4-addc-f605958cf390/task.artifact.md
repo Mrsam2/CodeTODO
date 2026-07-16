@@ -1,0 +1,2 @@
+- `[ ]` Execute Gradle build (`./gradlew assembleDebug`)
+- `[ ]` Verify APK generation
