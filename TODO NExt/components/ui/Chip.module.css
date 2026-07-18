@@ -1,0 +1,16 @@
+.chip {
+  padding: 6px 16px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-muted);
+  margin-right: var(--spacing-1);
+  margin-bottom: var(--spacing-1);
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.chipSelected {
+  color: #fff;
+}

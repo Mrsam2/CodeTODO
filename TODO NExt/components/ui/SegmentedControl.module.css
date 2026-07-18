@@ -1,0 +1,28 @@
+.track {
+  display: flex;
+  flex-direction: row;
+  border-radius: var(--radius-pill);
+  padding: 4px;
+  gap: 4px;
+  background-color: var(--color-surface-muted);
+}
+
+.item {
+  flex: 1;
+  padding: 8px 0;
+  border-radius: var(--radius-pill);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+.itemActive {
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+}

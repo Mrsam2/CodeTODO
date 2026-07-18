@@ -1,0 +1,113 @@
+import { Todo, Category, ShiftLog } from '@/types';
+import { todayISO, addDays, lastNDates } from './dates';
+
+export interface DayStats {
+  date: string;
+  done: number;
+  shifted: number;
+  skipped: number;
+  needsReview: number;
+  total: number;
+  completionPct: number;
+}
+
+export interface CategoryReport {
+  categoryId: string;
+  categoryName: string;
+  totalTodos: number;
+  doneTodos: number;
+  shiftedOrSkipped: number;
+  weaknessScore: number;
+  avgShiftsPerTodo: number;
+}
+
+export function dayStats(todos: Todo[], date: string): DayStats {
+  const dayTodos = todos.filter((t) => t.dueDate === date);
+  const done = dayTodos.filter((t) => t.status === 'done').length;
+  const shifted = dayTodos.filter((t) => t.status === 'shifted').length;
+  const skipped = dayTodos.filter((t) => t.status === 'skipped').length;
+  const needsReview = dayTodos.filter((t) => t.status === 'needs_review').length;
+  const total = dayTodos.length;
+
+  return {
+    date,
+    done,
+    shifted,
+    skipped,
+    needsReview,
+    total,
+    completionPct: total === 0 ? 0 : Math.round((done / total) * 100),
+  };
+}
+
+export function trend(todos: Todo[], days: number, anchorDate?: string): DayStats[] {
+  const dates = lastNDates(days, anchorDate);
+  return dates.map((date) => dayStats(todos, date));
+}
+
+export function streak(
+  todos: Todo[],
+  streakTargetPct: number,
+  days: number = 30,
+  anchorDate?: string
+): number {
+  const dates = lastNDates(days, anchorDate);
+  let count = 0;
+
+  for (let i = dates.length - 1; i >= 0; i--) {
+    const stats = dayStats(todos, dates[i]);
+    if (stats.completionPct >= streakTargetPct) {
+      count++;
+    } else {
+      break;
+    }
+  }
+
+  return count;
+}
+
+export function categoryReports(
+  todos: Todo[],
+  categories: Category[],
+  shiftLogs: ShiftLog[]
+): CategoryReport[] {
+  return categories.map((cat) => {
+    const catTodos = todos.filter((t) => t.categoryId === cat.id);
+    const doneTodos = catTodos.filter((t) => t.status === 'done').length;
+    const shiftedOrSkipped = catTodos.filter(
+      (t) => t.status === 'shifted' || t.status === 'skipped'
+    ).length;
+    const totalTodos = catTodos.length;
+
+    const totalShifts = shiftLogs
+      .filter((log) => {
+        const todo = catTodos.find((t) => t.id === log.todoId);
+        return !!todo;
+      })
+      .reduce((sum, log) => sum + log.shiftNumber, 0);
+
+    const avgShiftsPerTodo = totalTodos === 0 ? 0 : totalShifts / totalTodos;
+    const weaknessScore =
+      totalTodos === 0 ? 0 : Math.round(((shiftedOrSkipped + totalShifts) / totalTodos) * 100);
+
+    return {
+      categoryId: cat.id,
+      categoryName: cat.name,
+      totalTodos,
+      doneTodos,
+      shiftedOrSkipped,
+      weaknessScore,
+      avgShiftsPerTodo,
+    };
+  });
+}
+
+export function weaknesses(
+  todos: Todo[],
+  categories: Category[],
+  shiftLogs: ShiftLog[]
+): CategoryReport[] {
+  return categoryReports(todos, categories, shiftLogs)
+    .filter((r) => r.totalTodos > 0 && (r.shiftedOrSkipped > 0 || r.weaknessScore > 0))
+    .sort((a, b) => b.weaknessScore - a.weaknessScore);
+}

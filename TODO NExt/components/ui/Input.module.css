@@ -1,0 +1,23 @@
+.input {
+  background-color: var(--color-surface-muted);
+  border: 0;
+  border-radius: var(--radius-md);
+  padding: 10px 16px;
+  color: var(--color-text);
+  font-size: 14px;
+  min-height: 44px;
+  width: 100%;
+}
+
+.input::placeholder {
+  color: var(--color-text-secondary);
+}
+
+.multiline {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.input:disabled {
+  opacity: 0.6;
+}

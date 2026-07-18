@@ -1,0 +1,39 @@
+.button {
+  padding: 12px 24px;
+  border-radius: var(--radius-pill);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.primary {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.secondary {
+  background-color: var(--color-surface-muted);
+  border-color: var(--color-surface-muted);
+  color: var(--color-text);
+}
+
+.ghost {
+  background-color: transparent;
+  border-color: transparent;
+  color: var(--color-text);
+}
+
+.small {
+  padding: 8px 16px;
+  font-size: 12px;
+}
+
+.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

@@ -1,0 +1,131 @@
+.stepRow {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  gap: 32px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--color-border);
+  background-color: var(--color-surface);
+}
+
+.stepItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.stepCircle {
+  width: 28px;
+  height: 28px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.durationChip {
+  border: 1px solid;
+  border-radius: 20px;
+  padding: 6px 14px;
+  min-width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: transparent;
+}
+
+.dateRow {
+  border: 1px solid;
+  border-radius: 8px;
+  padding: 10px;
+  margin-top: 12px;
+}
+
+.slotTypeDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 5px;
+  flex-shrink: 0;
+}
+
+.typeChip {
+  border: 1px solid;
+  border-radius: 20px;
+  padding: 4px 10px;
+  cursor: pointer;
+  background: transparent;
+}
+
+.dayChip {
+  width: 30px;
+  height: 30px;
+  border-radius: 15px;
+  border: 1px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.catRow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid;
+  border-radius: 10px;
+  padding: 10px;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+}
+
+.checkbox {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  border: 1.5px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.aiGenCard {
+  border: 1.5px solid;
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.generateBtn {
+  border-radius: 10px;
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 4px;
+  border: none;
+  cursor: pointer;
+}
+
+.summaryBadge {
+  border: 1px solid;
+  border-radius: 8px;
+  padding: 10px;
+  margin-top: 4px;
+}
+
+.divLine {
+  flex: 1;
+  height: 1px;
+  border-radius: 1px;
+  background-color: var(--color-border);
+}

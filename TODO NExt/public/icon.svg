@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E2026" />
+      <stop offset="100%" stop-color="#0B0C0E" />
+    </linearGradient>
+    
+    <!-- Neon Sun/Progress Gradient -->
+    <linearGradient id="sunGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#A67DFF" />
+      <stop offset="50%" stop-color="#7A45FF" />
+      <stop offset="100%" stop-color="#5D24FF" />
+    </linearGradient>
+
+    <!-- Glowing Accent -->
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="15" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Base Rounded Card (App Icon Shape) -->
+  <rect x="16" y="16" width="480" height="480" rx="108" fill="url(#bgGrad)" stroke="#22252C" stroke-width="8" />
+
+  <!-- Glowing background sun ring -->
+  <circle cx="256" cy="256" r="140" fill="none" stroke="url(#sunGrad)" stroke-width="28" opacity="0.3" filter="url(#glow)" />
+
+  <!-- Main Sun/Progress Arc (Stylized circular track representing a clock/day progress) -->
+  <path d="M 256,116 A 140,140 0 1,1 116,256" fill="none" stroke="url(#sunGrad)" stroke-width="28" stroke-linecap="round" filter="url(#glow)" />
+
+  <!-- Stylized Sun Rays (Modern minimal dashes) -->
+  <line x1="256" y1="56" x2="256" y2="86" stroke="#A67DFF" stroke-width="12" stroke-linecap="round" />
+  <line x1="456" y1="256" x2="426" y2="256" stroke="#7A45FF" stroke-width="12" stroke-linecap="round" />
+  <line x1="256" y1="456" x2="256" y2="426" stroke="#5D24FF" stroke-width="12" stroke-linecap="round" />
+  
+  <line x1="397" y1="115" x2="376" y2="136" stroke="#7A45FF" stroke-width="12" stroke-linecap="round" />
+  <line x1="115" y1="397" x2="136" y2="376" stroke="#7A45FF" stroke-width="12" stroke-linecap="round" />
+
+  <!-- Glow effect checkmark -->
+  <path d="M 200,260 L 240,300 L 330,190" fill="none" stroke="#FFFFFF" stroke-width="32" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)" />
+</svg>
