@@ -3,8 +3,15 @@
 import { useState, useEffect } from 'react';
 import { Button, Card, Input, Row } from '@/components/ui';
 import { useAppStore } from '@/store/useAppStore';
+import { LottieLoader } from '@/components/LottieLoader';
 import Lottie from 'lottie-react';
 import timeAnimation from '@/public/Time.json';
+
+interface BeforeInstallPromptEvent extends Event {
+  readonly platforms: string[];
+  readonly userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
+  prompt(): Promise<void>;
+}
 
 const EyeIcon = ({ color }: { color: string }) => (
   <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -40,7 +47,7 @@ export default function AuthPage() {
   const [googleName, setGoogleName] = useState('');
 
   // PWA Installation states
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showInstallPopup, setShowInstallPopup] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
 
@@ -48,24 +55,24 @@ export default function AuthPage() {
     if (typeof window === 'undefined') return;
 
     // Check if already in standalone mode (installed)
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone === true;
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || ('standalone' in window.navigator && (window.navigator as unknown as { standalone: boolean }).standalone);
     if (isStandalone) return;
 
     // Check if iOS
     const userAgent = window.navigator.userAgent.toLowerCase();
     const ios = /iphone|ipad|ipod/.test(userAgent);
-    setIsIOS(ios);
 
     // If iOS and not installed, automatically show popup after 2.5 seconds
     if (ios) {
       const timer = setTimeout(() => {
+        setIsIOS(true);
         setShowInstallPopup(true);
       }, 2500);
       return () => clearTimeout(timer);
     }
 
     // For other browsers, capture beforeinstallprompt
-    const handleBeforeInstallPrompt = (e: any) => {
+    const handleBeforeInstallPrompt = (e: BeforeInstallPromptEvent) => {
       e.preventDefault();
       setDeferredPrompt(e);
       // Automatically show install card after 2.5 seconds
@@ -74,8 +81,8 @@ export default function AuthPage() {
       }, 2500);
     };
 
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt as EventListener);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt as EventListener);
   }, []);
 
   const handleInstallClick = async () => {
@@ -167,7 +174,7 @@ export default function AuthPage() {
             setError('Google sign-in token was not found in response.');
           }
         }
-      } catch (e) {
+      } catch {
         // Cross-origin exception is expected until redirected to redirectUri
       }
     }, 500);
@@ -362,7 +369,7 @@ export default function AuthPage() {
           )}
 
           {loading ? (
-            <div style={{ textAlign: 'center', margin: '8px 0' }}>Loading…</div>
+            <LottieLoader size={80} text="Authenticating..." />
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <Button
@@ -597,7 +604,7 @@ export default function AuthPage() {
                     1. Tap the Share button <span style={{ fontSize: 14 }}>⎋</span> at the bottom of Safari.
                   </span>
                   <span style={{ fontSize: 12, color: 'var(--color-text-secondary)', lineHeight: 1.4 }}>
-                    2. Scroll down and select <strong>"Add to Home Screen"</strong>.
+                    2. Scroll down and select <strong>&quot;Add to Home Screen&quot;</strong>.
                   </span>
                   <Button title="Got it" onPress={() => setShowInstallPopup(false)} />
                 </div>

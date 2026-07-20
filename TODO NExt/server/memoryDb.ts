@@ -27,6 +27,7 @@ export interface MemoryUserData {
   shiftLogs: unknown[];
   studyPlans: unknown[];
   aiSuggestions: unknown[];
+  markdownFiles?: unknown[];
   settings: Record<string, unknown>;
   lastSyncAt: number;
 }

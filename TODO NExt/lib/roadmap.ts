@@ -1,4 +1,4 @@
-import { RoadmapNode, NestedRoadmapNode, MAX_ROADMAP_DEPTH, NodeStatus } from '@/types';
+import { RoadmapNode, NestedRoadmapNode, MAX_ROADMAP_DEPTH } from '@/types';
 
 export function traversalOrder(nodes: RoadmapNode[], categoryId: string): RoadmapNode[] {
   const categoryNodes = nodes.filter((n) => n.categoryId === categoryId);

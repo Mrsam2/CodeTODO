@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
+import { LottieLoader } from '@/components/LottieLoader';
 import { Button, Card, Input, ProgressBar, Row, SectionHeader, CategoryIcon, AIButton } from '@/components/ui';
 import { RoadmapTree } from '@/components/RoadmapTree';
 import { categoryCompletionPct } from '@/lib/roadmap';
@@ -10,11 +11,20 @@ import { useAppStore } from '@/store/useAppStore';
 export default function CategoryDetailPage() {
   const { id } = useParams<{ id: string }>();
   const store = useAppStore();
-  const category = store.categories.find((c) => c.id === id);
+
+  useEffect(() => {
+    store.syncWithCloud(['categories', 'roadmapNodes']);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const category = store.categories.find((c) => c.id === id && !c.isDeleted);
   const [topicTitle, setTopicTitle] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
 
   if (!category) {
+    if (store.loadingSections?.categories) {
+      return <LottieLoader text="Loading Category Details..." size={120} />;
+    }
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
         <span>Category not found</span>

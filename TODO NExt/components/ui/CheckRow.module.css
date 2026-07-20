@@ -81,3 +81,15 @@
   align-items: center;
   gap: var(--spacing-1);
 }
+
+.boxLive {
+  border-color: #10b981 !important;
+  background-color: rgba(16, 185, 129, 0.12) !important;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.25);
+}
+
+.boxOverdue {
+  border-color: #ef4444 !important;
+  background-color: rgba(239, 68, 68, 0.12) !important;
+  box-shadow: 0 0 6px rgba(239, 68, 68, 0.25);
+}

@@ -15,6 +15,7 @@ import {
   StudyPlan,
   SlotTemplate,
   AISuggestion,
+  MarkdownFile,
 } from '@/types';
 import {
   recomputeStatuses,
@@ -40,14 +41,24 @@ interface AppState {
   shiftLogs: ShiftLog[];
   studyPlans: StudyPlan[];
   aiSuggestions: AISuggestion[];
+  markdownFiles: MarkdownFile[];
   settings: Settings;
 
   token: string | null;
   user: { id: string; email: string; name?: string } | null;
+  sessionExpiresAt: number | null;
   isSyncing: boolean;
   lastSyncAt: number;
   deletedIds: string[];
   syncPending: boolean;
+  hasHydrated: boolean;
+  loadingSections: Record<string, boolean>;
+  lastFetchedSections: Record<string, number>;
+  focusTimerTargetTime: number | null;
+  focusTimerDuration: number;
+  focusTimerTimeLeft: number;
+  focusTimerIsPaused: boolean;
+  focusTimerIsMinimized: boolean;
 
   login: (email: string, password: string) => Promise<string | null>;
   signup: (email: string, password: string) => Promise<string | null>;
@@ -55,13 +66,15 @@ interface AppState {
   registerPasskey: (deviceName?: string) => Promise<string | null>;
   loginWithPasskey: (email: string) => Promise<string | null>;
   logout: () => void;
-  syncWithCloud: () => Promise<void>;
+  syncWithCloud: (sections?: string[], force?: boolean) => Promise<void>;
   requestPasswordResetOtp: (email: string) => Promise<string | null>;
   resetPassword: (email: string, otp: string, newPassword: string) => Promise<string | null>;
 
   addCategory: (cat: Omit<Category, 'id' | 'createdAt'>) => void;
   updateCategory: (id: string, updates: Partial<Category>) => void;
   deleteCategory: (id: string) => void;
+  restoreCategory: (id: string) => void;
+  deleteCategoryPermanently: (id: string) => void;
 
   addRoadmapNode: (node: Omit<RoadmapNode, 'id' | 'createdAt'>) => void;
   updateRoadmapNode: (id: string, updates: Partial<RoadmapNode>) => void;
@@ -97,6 +110,8 @@ interface AppState {
   addFutureIdea: (idea: Omit<FutureIdea, 'id' | 'createdAt'>) => void;
   updateFutureIdea: (id: string, updates: Partial<FutureIdea>) => void;
   deleteFutureIdea: (id: string) => void;
+  addMarkdownFile: (file: Omit<MarkdownFile, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  deleteMarkdownFile: (id: string) => void;
 
   updateSettings: (updates: Partial<Settings>) => void;
 
@@ -113,6 +128,11 @@ interface AppState {
   getCategoryReports: () => CategoryReport[];
   getWeaknesses: () => ReturnType<typeof weaknesses>;
   getStreak: () => number;
+  startFocusTimer: (durationInSeconds: number) => void;
+  pauseFocusTimer: () => void;
+  resumeFocusTimer: () => void;
+  stopFocusTimer: () => void;
+  minimizeFocusTimer: (minimized: boolean) => void;
 }
 
 const defaultSettings: Settings = {
@@ -124,6 +144,10 @@ const defaultSettings: Settings = {
   aiBackendUrl: process.env.NEXT_PUBLIC_AI_BACKEND_URL || '',
   notificationsEnabled: false,
   onboardingComplete: false,
+  motivationImageUrl: '',
+  motivationSubtext: "Let's make progress today!",
+  countdownTarget: '',
+  countdownLabel: '',
 };
 
 function todoSortValue(todo: Todo) {
@@ -206,18 +230,28 @@ export const useAppStore = create<AppState>()(
       shiftLogs: [],
       studyPlans: [],
       aiSuggestions: [],
+      markdownFiles: [],
       settings: defaultSettings,
 
       token: null,
       user: null,
+      sessionExpiresAt: null,
       isSyncing: false,
       lastSyncAt: 0,
       deletedIds: [],
       syncPending: false,
+      hasHydrated: false,
+      loadingSections: {},
+      lastFetchedSections: {},
+      focusTimerTargetTime: null,
+      focusTimerDuration: 0,
+      focusTimerTimeLeft: 0,
+      focusTimerIsPaused: false,
+      focusTimerIsMinimized: false,
 
       login: async (email, password) => {
         try {
-          const response = await fetch(`${get().settings.aiBackendUrl}/api/auth/login`, {
+          const response = await fetch('/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password }),
@@ -226,7 +260,7 @@ export const useAppStore = create<AppState>()(
           if (!response.ok) {
             throw new Error(data.error || 'Login failed');
           }
-          set({ token: data.token, user: data.user, deletedIds: [] });
+          set({ token: data.token, user: data.user, sessionExpiresAt: Date.now() + 90 * 24 * 60 * 60 * 1000, deletedIds: [] });
           await get().syncWithCloud();
           return null;
         } catch (error) {
@@ -237,7 +271,7 @@ export const useAppStore = create<AppState>()(
 
       googleLogin: async (credential, isMock = false, email = '', name = '') => {
         try {
-          const response = await fetch(`${get().settings.aiBackendUrl}/api/auth/google`, {
+          const response = await fetch('/api/auth/google', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ credential, isMock, email, name }),
@@ -246,7 +280,7 @@ export const useAppStore = create<AppState>()(
           if (!response.ok) {
             throw new Error(data.error || 'Google login failed');
           }
-          set({ token: data.token, user: data.user, deletedIds: [] });
+          set({ token: data.token, user: data.user, sessionExpiresAt: Date.now() + 90 * 24 * 60 * 60 * 1000, deletedIds: [] });
           await get().syncWithCloud();
           return null;
         } catch (error) {
@@ -260,7 +294,7 @@ export const useAppStore = create<AppState>()(
           const token = get().token;
           if (!token) throw new Error('Not logged in');
 
-          const optionsRes = await fetch(`${get().settings.aiBackendUrl}/api/auth/passkey/register-challenge`, {
+          const optionsRes = await fetch('/api/auth/passkey/register-challenge', {
             headers: { 'Authorization': `Bearer ${token}` }
           });
           const options = await optionsRes.json();
@@ -289,7 +323,7 @@ export const useAppStore = create<AppState>()(
 
           if (!credential) throw new Error('Failed to create credential on device');
 
-          const registerRes = await fetch(`${get().settings.aiBackendUrl}/api/auth/passkey/register`, {
+          const registerRes = await fetch('/api/auth/passkey/register', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -314,7 +348,7 @@ export const useAppStore = create<AppState>()(
 
       loginWithPasskey: async (email) => {
         try {
-          const challengeRes = await fetch(`${get().settings.aiBackendUrl}/api/auth/passkey/login-challenge`, {
+          const challengeRes = await fetch('/api/auth/passkey/login-challenge', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email })
@@ -322,7 +356,7 @@ export const useAppStore = create<AppState>()(
           const options = await challengeRes.json();
           if (!challengeRes.ok) throw new Error(options.error || 'Failed to get passkey options');
 
-          const allowCredentials = options.allowCredentials.map((cred: any) => {
+          const allowCredentials = options.allowCredentials.map((cred: { id: string; type: string }) => {
             const idBuffer = Uint8Array.from(cred.id, (c: string) => c.charCodeAt(0));
             return {
               id: idBuffer,
@@ -344,7 +378,7 @@ export const useAppStore = create<AppState>()(
 
           if (!credential) throw new Error('Passkey verification failed on device');
 
-          const loginRes = await fetch(`${get().settings.aiBackendUrl}/api/auth/passkey/login`, {
+          const loginRes = await fetch('/api/auth/passkey/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -356,7 +390,7 @@ export const useAppStore = create<AppState>()(
           const loginData = await loginRes.json();
           if (!loginRes.ok) throw new Error(loginData.error || 'Failed to login with passkey');
 
-          set({ token: loginData.token, user: loginData.user, deletedIds: [] });
+          set({ token: loginData.token, user: loginData.user, sessionExpiresAt: Date.now() + 90 * 24 * 60 * 60 * 1000, deletedIds: [] });
           await get().syncWithCloud();
           return null;
         } catch (error) {
@@ -367,7 +401,7 @@ export const useAppStore = create<AppState>()(
 
       signup: async (email, password) => {
         try {
-          const response = await fetch(`${get().settings.aiBackendUrl}/api/auth/signup`, {
+          const response = await fetch('/api/auth/signup', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password }),
@@ -376,7 +410,7 @@ export const useAppStore = create<AppState>()(
           if (!response.ok) {
             throw new Error(data.error || 'Signup failed');
           }
-          set({ token: data.token, user: data.user, deletedIds: [] });
+          set({ token: data.token, user: data.user, sessionExpiresAt: Date.now() + 90 * 24 * 60 * 60 * 1000, deletedIds: [] });
           await get().syncWithCloud();
           return null;
         } catch (error) {
@@ -387,7 +421,7 @@ export const useAppStore = create<AppState>()(
 
       requestPasswordResetOtp: async (email) => {
         try {
-          const response = await fetch(`${get().settings.aiBackendUrl}/api/auth/forgot-password`, {
+          const response = await fetch('/api/auth/forgot-password', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email }),
@@ -405,7 +439,7 @@ export const useAppStore = create<AppState>()(
 
       resetPassword: async (email, otp, newPassword) => {
         try {
-          const response = await fetch(`${get().settings.aiBackendUrl}/api/auth/reset-password`, {
+          const response = await fetch('/api/auth/reset-password', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, otp, newPassword }),
@@ -425,6 +459,7 @@ export const useAppStore = create<AppState>()(
         set({
           token: null,
           user: null,
+          sessionExpiresAt: null,
           categories: [],
           roadmapNodes: [],
           todos: [],
@@ -437,69 +472,177 @@ export const useAppStore = create<AppState>()(
         });
       },
 
-      syncWithCloud: async () => {
+      syncWithCloud: async (sections?: string[], force = false) => {
         const state = get();
         if (!state.token) return;
+
+        // Throttling: if sections is provided and force is false, filter based on lastFetchedSections
+        let sectionsToSync = sections;
+        const now = Date.now();
+        if (sectionsToSync && !force) {
+          sectionsToSync = sectionsToSync.filter((sec) => {
+            const lastSync = state.lastFetchedSections?.[sec] || 0;
+            return now - lastSync > 30000; // 30-second cache
+          });
+          if (sectionsToSync.length === 0) {
+            return;
+          }
+        }
+
         if (state.isSyncing) {
+          if (sectionsToSync) {
+            const loadingUpdates: Record<string, boolean> = {};
+            sectionsToSync.forEach((sec) => {
+              loadingUpdates[sec] = true;
+            });
+            set((prev) => ({
+              loadingSections: {
+                ...prev.loadingSections,
+                ...loadingUpdates,
+              },
+            }));
+          }
           set({ syncPending: true });
           return;
         }
 
-        const { cleanedTodos, newDeletedIds } = cleanDuplicates(state.todos, state.deletedIds);
-        if (cleanedTodos.length !== state.todos.length) {
-          set({ todos: cleanedTodos, deletedIds: newDeletedIds });
+        const allCollections = [
+          'categories',
+          'roadmapNodes',
+          'todos',
+          'dayPlans',
+          'notes',
+          'savedLinks',
+          'futureIdeas',
+          'shiftLogs',
+          'studyPlans',
+          'aiSuggestions',
+          'markdownFiles',
+        ];
+
+        if (!sectionsToSync || sectionsToSync.includes('todos')) {
+          const { cleanedTodos, newDeletedIds } = cleanDuplicates(state.todos, state.deletedIds);
+          if (cleanedTodos.length !== state.todos.length) {
+            set({ todos: cleanedTodos, deletedIds: newDeletedIds });
+          }
         }
 
-        set({ isSyncing: true, syncPending: false });
+        // Set loading states
+        const loadingUpdates: Record<string, boolean> = {};
+        if (sectionsToSync) {
+          sectionsToSync.forEach((sec) => {
+            loadingUpdates[sec] = true;
+          });
+        } else {
+          allCollections.forEach((sec) => {
+            loadingUpdates[sec] = true;
+          });
+          loadingUpdates['global'] = true;
+        }
+
+        set((prev) => ({
+          loadingSections: {
+            ...prev.loadingSections,
+            ...loadingUpdates,
+          },
+          isSyncing: true,
+          syncPending: false,
+        }));
+
         try {
           const currentState = get();
-          const response = await fetch(`${currentState.settings.aiBackendUrl}/api/sync`, {
+          
+          const bodyPayload: any = {
+            sections: sectionsToSync,
+            deletedIds: currentState.deletedIds,
+            settings: currentState.settings,
+          };
+
+          allCollections.forEach((col) => {
+            if (!sectionsToSync || sectionsToSync.includes(col)) {
+              bodyPayload[col] = currentState[col as keyof AppState];
+            }
+          });
+
+          const response = await fetch('/api/sync', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               Authorization: `Bearer ${currentState.token}`,
             },
-            body: JSON.stringify({
-              categories: currentState.categories,
-              roadmapNodes: currentState.roadmapNodes,
-              todos: currentState.todos,
-              dayPlans: currentState.dayPlans,
-              notes: currentState.notes,
-              savedLinks: currentState.savedLinks,
-              futureIdeas: currentState.futureIdeas,
-              shiftLogs: currentState.shiftLogs,
-              studyPlans: currentState.studyPlans,
-              aiSuggestions: currentState.aiSuggestions,
-              settings: currentState.settings,
-              deletedIds: currentState.deletedIds,
-            }),
+            body: JSON.stringify(bodyPayload),
           });
 
           if (response.ok) {
             const data = await response.json();
             if (!get().syncPending) {
-              const { cleanedTodos: serverCleanedTodos } = cleanDuplicates(data.todos, []);
-              set({
-                categories: data.categories,
-                roadmapNodes: data.roadmapNodes,
-                todos: serverCleanedTodos,
-                dayPlans: data.dayPlans,
-                notes: data.notes,
-                savedLinks: data.savedLinks,
-                futureIdeas: data.futureIdeas,
-                shiftLogs: data.shiftLogs,
-                studyPlans: data.studyPlans ?? get().studyPlans,
-                aiSuggestions: data.aiSuggestions ?? get().aiSuggestions,
-                settings: data.settings,
-                lastSyncAt: data.lastSyncAt,
+              const serverSettings: Partial<Settings> = data.settings ?? {};
+              const localSettings = get().settings;
+              const mergedSettings = { ...localSettings, ...serverSettings };
+              (['motivationImageUrl', 'motivationSubtext', 'themeMode', 'countdownTarget', 'countdownLabel'] as const).forEach((key) => {
+                if (!serverSettings[key] && localSettings[key]) {
+                  (mergedSettings as Record<string, unknown>)[key] = localSettings[key];
+                }
               });
+
+              const updatePayload: Partial<AppState> = {};
+
+              if (data.categories !== undefined) updatePayload.categories = data.categories;
+              if (data.roadmapNodes !== undefined) updatePayload.roadmapNodes = data.roadmapNodes;
+              if (data.todos !== undefined) {
+                const { cleanedTodos: serverCleanedTodos } = cleanDuplicates(data.todos, []);
+                updatePayload.todos = serverCleanedTodos;
+              }
+              if (data.dayPlans !== undefined) updatePayload.dayPlans = data.dayPlans;
+              if (data.notes !== undefined) updatePayload.notes = data.notes;
+              if (data.savedLinks !== undefined) updatePayload.savedLinks = data.savedLinks;
+              if (data.futureIdeas !== undefined) updatePayload.futureIdeas = data.futureIdeas;
+              if (data.shiftLogs !== undefined) updatePayload.shiftLogs = data.shiftLogs;
+              if (data.studyPlans !== undefined) updatePayload.studyPlans = data.studyPlans;
+              if (data.aiSuggestions !== undefined) updatePayload.aiSuggestions = data.aiSuggestions;
+              if (data.markdownFiles !== undefined) updatePayload.markdownFiles = data.markdownFiles;
+              if (data.settings !== undefined) updatePayload.settings = mergedSettings;
+              if (data.lastSyncAt !== undefined) updatePayload.lastSyncAt = data.lastSyncAt;
+
+              const newFetchedTimes = { ...get().lastFetchedSections };
+              if (sectionsToSync) {
+                sectionsToSync.forEach((sec) => {
+                  newFetchedTimes[sec] = Date.now();
+                });
+              } else {
+                allCollections.forEach((sec) => {
+                  newFetchedTimes[sec] = Date.now();
+                });
+              }
+              updatePayload.lastFetchedSections = newFetchedTimes;
+
+              set(updatePayload as any);
             }
             set({ deletedIds: [] });
           }
         } catch (error) {
           console.warn('Data Sync failed:', error);
         } finally {
-          set({ isSyncing: false });
+          const loadingUpdatesReset: Record<string, boolean> = {};
+          if (sectionsToSync) {
+            sectionsToSync.forEach((sec) => {
+              loadingUpdatesReset[sec] = false;
+            });
+          } else {
+            allCollections.forEach((sec) => {
+              loadingUpdatesReset[sec] = false;
+            });
+            loadingUpdatesReset['global'] = false;
+          }
+
+          set((prev) => ({
+            loadingSections: {
+              ...prev.loadingSections,
+              ...loadingUpdatesReset,
+            },
+            isSyncing: false,
+          }));
+
           if (get().syncPending) {
             get().syncWithCloud();
           }
@@ -512,7 +655,7 @@ export const useAppStore = create<AppState>()(
         if (!category) return false;
 
         try {
-          const response = await fetch(`${state.settings.aiBackendUrl}/api/ai/generate-roadmap`, {
+          const response = await fetch('/api/ai/generate-roadmap', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -540,19 +683,33 @@ export const useAppStore = create<AppState>()(
       },
 
       addCategory: (cat) => {
-        const newCat: Category = { ...cat, id: generateId('cat'), createdAt: Date.now() };
+        const newCat: Category = { ...cat, id: generateId('cat'), createdAt: Date.now(), updatedAt: Date.now() };
         set((state) => ({ categories: [...state.categories, newCat] }));
         get().syncWithCloud();
       },
 
       updateCategory: (id, updates) => {
         set((state) => ({
-          categories: state.categories.map((c) => (c.id === id ? { ...c, ...updates } : c)),
+          categories: state.categories.map((c) => (c.id === id ? { ...c, ...updates, updatedAt: Date.now() } : c)),
         }));
         get().syncWithCloud();
       },
 
       deleteCategory: (id) => {
+        set((state) => ({
+          categories: state.categories.map((c) => (c.id === id ? { ...c, isDeleted: true, updatedAt: Date.now() } : c)),
+        }));
+        get().syncWithCloud();
+      },
+
+      restoreCategory: (id) => {
+        set((state) => ({
+          categories: state.categories.map((c) => (c.id === id ? { ...c, isDeleted: false, updatedAt: Date.now() } : c)),
+        }));
+        get().syncWithCloud();
+      },
+
+      deleteCategoryPermanently: (id) => {
         set((state) => {
           const subnodes = state.roadmapNodes.filter((n) => n.categoryId === id);
           const subtodos = state.todos.filter((t) => t.categoryId === id);
@@ -1021,6 +1178,25 @@ export const useAppStore = create<AppState>()(
         get().syncWithCloud();
       },
 
+      addMarkdownFile: (file) => {
+        const newFile: MarkdownFile = {
+          ...file,
+          id: generateId('file'),
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+        set((state) => ({ markdownFiles: [...state.markdownFiles, newFile] }));
+        get().syncWithCloud(['markdownFiles']);
+      },
+
+      deleteMarkdownFile: (id) => {
+        set((state) => ({
+          markdownFiles: state.markdownFiles.filter((f) => f.id !== id),
+          deletedIds: [...state.deletedIds, id],
+        }));
+        get().syncWithCloud(['markdownFiles']);
+      },
+
       updateSettings: (updates) => {
         set((state) => ({ settings: { ...state.settings, ...updates } }));
         get().syncWithCloud();
@@ -1033,12 +1209,12 @@ export const useAppStore = create<AppState>()(
 
       getCategoryReports: () => {
         const state = get();
-        return categoryReports(state.todos, state.categories, state.shiftLogs);
+        return categoryReports(state.todos, state.categories.filter(c => !c.isDeleted), state.shiftLogs);
       },
 
       getWeaknesses: () => {
         const state = get();
-        return weaknesses(state.todos, state.categories, state.shiftLogs);
+        return weaknesses(state.todos, state.categories.filter(c => !c.isDeleted), state.shiftLogs);
       },
 
       getStreak: () => {
@@ -1116,7 +1292,7 @@ export const useAppStore = create<AppState>()(
         const payload = buildSuggestionsPromptPayload(plan, state.roadmapNodes, state.categories);
 
         try {
-          const response = await fetch(`${state.settings.aiBackendUrl}/api/ai/ai-suggestions`, {
+          const response = await fetch('/api/ai/ai-suggestions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
@@ -1238,6 +1414,49 @@ export const useAppStore = create<AppState>()(
         }));
 
         get().syncWithCloud();
+      },
+
+      startFocusTimer: (duration) => {
+        set({
+          focusTimerTargetTime: Date.now() + duration * 1000,
+          focusTimerDuration: duration,
+          focusTimerTimeLeft: duration,
+          focusTimerIsPaused: false,
+          focusTimerIsMinimized: false,
+        });
+      },
+
+      pauseFocusTimer: () => {
+        const { focusTimerTargetTime } = get();
+        const remaining = focusTimerTargetTime ? Math.max(0, Math.ceil((focusTimerTargetTime - Date.now()) / 1000)) : 0;
+        set({
+          focusTimerTargetTime: null,
+          focusTimerTimeLeft: remaining,
+          focusTimerIsPaused: true,
+        });
+      },
+
+      resumeFocusTimer: () => {
+        const { focusTimerTimeLeft } = get();
+        set({
+          focusTimerTargetTime: Date.now() + focusTimerTimeLeft * 1000,
+          focusTimerIsPaused: false,
+        });
+      },
+
+      stopFocusTimer: () => {
+        set({
+          focusTimerTargetTime: null,
+          focusTimerTimeLeft: 0,
+          focusTimerIsPaused: false,
+          focusTimerIsMinimized: false,
+        });
+      },
+
+      minimizeFocusTimer: (minimized) => {
+        set({
+          focusTimerIsMinimized: minimized,
+        });
       },
     }),
     {

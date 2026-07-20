@@ -1,7 +1,8 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { LottieLoader } from '@/components/LottieLoader';
 import { Card, Button, SectionHeader, Row, Input, ProgressBar, CategoryIcon } from '@/components/ui';
 import { useAppStore } from '@/store/useAppStore';
 import { todayISO } from '@/lib/dates';
@@ -285,6 +286,12 @@ function AISuggestionsPanel({ suggestion, onRefresh, isLoading }: { suggestion: 
 export default function TimetablePage() {
   const router = useRouter();
   const store = useAppStore();
+
+  useEffect(() => {
+    store.syncWithCloud(['studyPlans', 'aiSuggestions', 'categories']);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [allocatingSlotId, setAllocatingSlotId] = useState<string | null>(null);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<SlotTemplate | null>(null);
@@ -391,6 +398,13 @@ export default function TimetablePage() {
   };
 
   if (!activePlan) {
+    if (store.loadingSections?.studyPlans) {
+      return (
+        <div className={styles.emptyContainer} style={{ justifyContent: 'center', minHeight: '50vh' }}>
+          <LottieLoader text="Syncing Timetable..." size={120} />
+        </div>
+      );
+    }
     return (
       <div className={styles.emptyContainer}>
         <div className={styles.emptyEmoji}>📅</div>
@@ -476,7 +490,7 @@ export default function TimetablePage() {
 
             <span style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 6, display: 'block' }}>Assign Categories</span>
             <Row style={{ flexWrap: 'wrap', gap: 4 }}>
-              {store.categories.map((cat) => {
+              {store.categories.filter(c => !c.isDeleted).map((cat) => {
                 const active = addCategoryIds.includes(cat.id);
                 return (
                   <button
@@ -511,7 +525,7 @@ export default function TimetablePage() {
               <SlotRow
                 key={slot.id}
                 slot={slot}
-                categories={store.categories}
+                categories={store.categories.filter(c => !c.isDeleted)}
                 topicPreviews={buildSlotTopicPreviews(slot, store.roadmapNodes, store.categories)}
                 onAllocate={handleAllocate}
                 isAllocating={allocatingSlotId === slot.id}

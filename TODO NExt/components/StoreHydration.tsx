@@ -9,6 +9,18 @@ export function StoreHydration() {
   useEffect(() => {
     useAppStore.persist.rehydrate();
 
+    // Enforce 3-month session expiration
+    const state = useAppStore.getState();
+    if (state.token) {
+      if (state.sessionExpiresAt && Date.now() > state.sessionExpiresAt) {
+        state.logout();
+      } else if (!state.sessionExpiresAt) {
+        useAppStore.setState({ sessionExpiresAt: Date.now() + 90 * 24 * 60 * 60 * 1000 });
+      }
+    }
+
+    useAppStore.setState({ hasHydrated: true });
+
     // Register service worker for PWA
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

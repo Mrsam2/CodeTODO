@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
       }
 
-      const hasPasskey = user.passkeys.some((pk: any) => pk.credentialId === credentialId);
+      const hasPasskey = user.passkeys.some((pk: { credentialId: string }) => pk.credentialId === credentialId);
       if (!hasPasskey) {
         return NextResponse.json({ error: 'Invalid passkey credential' }, { status: 400 });
       }

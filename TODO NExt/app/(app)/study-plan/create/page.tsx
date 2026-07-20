@@ -113,10 +113,10 @@ export default function CreateStudyPlanPage() {
     setIsGenerating(true);
     setAiPlanSummary('');
     try {
-      const response = await fetch(`${store.settings.aiBackendUrl}/api/ai/generate-timetable-slots`, {
+      const response = await fetch('/api/ai/generate-timetable-slots', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userPrompt: aiPrompt, planName: planName || 'My Study Plan', durationMonths: months, categories: store.categories }),
+        body: JSON.stringify({ userPrompt: aiPrompt, planName: planName || 'My Study Plan', durationMonths: months, categories: store.categories.filter(c => !c.isDeleted) }),
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
@@ -126,7 +126,7 @@ export default function CreateStudyPlanPage() {
           const categoryIds: string[] = [];
           if (s.categoryNames && Array.isArray(s.categoryNames)) {
             s.categoryNames.forEach((name: string) => {
-              const matched = store.categories.find((c) => c.name.toLowerCase().trim() === name.toLowerCase().trim());
+              const matched = store.categories.find((c) => c.name.toLowerCase().trim() === name.toLowerCase().trim() && !c.isDeleted);
               if (matched) categoryIds.push(matched.id);
             });
           }
@@ -432,13 +432,13 @@ export default function CreateStudyPlanPage() {
                       </Row>
 
                       <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>Assign Categories</span>
-                      {store.categories.length === 0 ? (
+                      {store.categories.filter(c => !c.isDeleted).length === 0 ? (
                         <span style={{ fontSize: 11, color: 'var(--color-text-secondary)', fontStyle: 'italic' }}>
                           No categories created yet.
                         </span>
                       ) : (
                         <Row style={{ flexWrap: 'wrap', gap: 6 }}>
-                          {store.categories.map((cat) => {
+                          {store.categories.filter(c => !c.isDeleted).map((cat) => {
                             const active = slot.categoryIds.includes(cat.id);
                             return (
                               <button
@@ -529,13 +529,13 @@ export default function CreateStudyPlanPage() {
                       </div>
                     </Row>
 
-                    {store.categories.length === 0 ? (
+                    {store.categories.filter(c => !c.isDeleted).length === 0 ? (
                       <span style={{ fontSize: 12, color: 'var(--color-text-secondary)', fontStyle: 'italic' }}>
                         No categories yet. Create some in the Categories tab first.
                       </span>
                     ) : (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        {store.categories.map((cat) => {
+                        {store.categories.filter(c => !c.isDeleted).map((cat) => {
                           const selected = slot.categoryIds.includes(cat.id);
                           return (
                             <button

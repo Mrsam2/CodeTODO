@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
       }
 
-      const exists = user.passkeys.some((pk: any) => pk.credentialId === credentialId);
+      const exists = user.passkeys.some((pk: { credentialId: string }) => pk.credentialId === credentialId);
       if (!exists) {
         user.passkeys.push(newPasskey);
         await user.save();

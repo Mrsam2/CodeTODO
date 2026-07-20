@@ -1,15 +1,12 @@
 import { runReschedule } from '../reschedule';
 import { Todo, DayPlan } from '@/types';
-import { todayISO, addDays } from '../dates';
+import { todayISO } from '../dates';
 
 describe('reschedule engine', () => {
   const catId = 'cat-1';
   const today = todayISO();
 
   it('does not shift todo before grace period expires', () => {
-    const now = Date.now();
-    const futureDate = new Date(now + 1000).toISOString().split('T')[0];
-
     const todos: Todo[] = [
       {
         id: 'todo1',

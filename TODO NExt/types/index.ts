@@ -10,6 +10,8 @@ export interface Category {
   icon: string;
   targetPacePerDayMins: number;
   createdAt: number;
+  updatedAt?: number;
+  isDeleted?: boolean;
 }
 
 export interface RoadmapNode {
@@ -127,6 +129,10 @@ export interface Settings {
   notificationsEnabled: boolean;
   themeMode?: 'system' | 'light' | 'dark';
   onboardingComplete: boolean;
+  motivationImageUrl?: string;
+  motivationSubtext?: string;
+  countdownTarget?: string;
+  countdownLabel?: string;
 }
 
 export interface NestedRoadmapNode {
@@ -172,4 +178,12 @@ export interface AISuggestion {
   suggestions: string[];
   overallMessage: string;
   generatedAt: number;
+}
+
+export interface MarkdownFile {
+  id: string;
+  title: string;
+  content: string;
+  createdAt: number;
+  updatedAt: number;
 }

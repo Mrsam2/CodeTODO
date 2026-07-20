@@ -1,6 +1,6 @@
 import { Todo, RoadmapNode, DayPlan, Category, ChecklistItem } from '@/types';
-import { findFirstUnlockedIncompleteNode, childrenOf } from './roadmap';
-import { todayISO, slotDurationMins, timeToMins } from './dates';
+import { findFirstUnlockedIncompleteNode } from './roadmap';
+import { todayISO, slotDurationMins } from './dates';
 
 export interface GenerateTodosResult {
   todos: Todo[];

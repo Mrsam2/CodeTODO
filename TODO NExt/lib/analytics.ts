@@ -1,5 +1,5 @@
 import { Todo, Category, ShiftLog } from '@/types';
-import { todayISO, addDays, lastNDates } from './dates';
+import { lastNDates, todayISO } from './dates';
 
 export interface DayStats {
   date: string;
@@ -45,21 +45,73 @@ export function trend(todos: Todo[], days: number, anchorDate?: string): DayStat
   return dates.map((date) => dayStats(todos, date));
 }
 
+export function heatmap(todos: Todo[], year: number): { date: string; value: number }[] {
+  const start = new Date(year, 0, 1);
+  const end   = new Date(year, 11, 31);
+  const result: { date: string; value: number }[] = [];
+  const cursor = new Date(start);
+  while (cursor <= end) {
+    const iso = cursor.toISOString().slice(0, 10);
+    const done = todos.filter((t) => t.dueDate === iso && t.status === 'done').length;
+    result.push({ date: iso, value: done });
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return result;
+}
+
 export function streak(
   todos: Todo[],
   streakTargetPct: number,
   days: number = 30,
   anchorDate?: string
 ): number {
-  const dates = lastNDates(days, anchorDate);
+  const today = anchorDate || todayISO();
+  
+  // Dynamically calculate lookback window based on the oldest todo dueDate
+  let lookbackDays = days;
+  if (todos.length > 0) {
+    const dueDates = todos
+      .map((t) => t.dueDate)
+      .filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d));
+    if (dueDates.length > 0) {
+      dueDates.sort();
+      const oldestDate = dueDates[0];
+      const [y1, m1, d1] = oldestDate.split('-').map(Number);
+      const [y2, m2, d2] = today.split('-').map(Number);
+      const date1 = new Date(y1, m1 - 1, d1);
+      const date2 = new Date(y2, m2 - 1, d2);
+      const diffTime = Math.abs(date2.getTime() - date1.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      lookbackDays = Math.max(days, diffDays + 1);
+    }
+  }
+
+  const dates = lastNDates(lookbackDays, today);
   let count = 0;
 
   for (let i = dates.length - 1; i >= 0; i--) {
-    const stats = dayStats(todos, dates[i]);
+    const date = dates[i];
+    const stats = dayStats(todos, date);
+    const isToday = date === today;
+
+    if (stats.total === 0) {
+      // Neutral day: no tasks scheduled.
+      // Do not increment the streak, and do not break the streak.
+      continue;
+    }
+
     if (stats.completionPct >= streakTargetPct) {
+      // Success day: increment streak.
       count++;
     } else {
-      break;
+      // Fail day: less than target % complete.
+      if (isToday) {
+        // Today is still in progress, so do not break the streak.
+        continue;
+      } else {
+        // Yesterday or earlier was a fail day, so the streak breaks here.
+        break;
+      }
     }
   }
 

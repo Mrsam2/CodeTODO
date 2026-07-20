@@ -8,6 +8,8 @@ const CategorySchema = new mongoose.Schema({
   icon: { type: String, default: '' },
   targetPacePerDayMins: { type: Number, default: 60 },
   createdAt: { type: Number, default: Date.now },
+  updatedAt: { type: Number, default: Date.now },
+  isDeleted: { type: Boolean, default: false },
 }, { _id: false });
 
 const RoadmapNodeSchema = new mongoose.Schema({
@@ -123,6 +125,11 @@ const SettingsSchema = new mongoose.Schema({
   aiBackendUrl: { type: String, default: '' },
   notificationsEnabled: { type: Boolean, default: false },
   onboardingComplete: { type: Boolean, default: false },
+  themeMode: { type: String, default: 'system' },
+  motivationImageUrl: { type: String, default: '' },
+  motivationSubtext: { type: String, default: "Let's make progress today!" },
+  countdownTarget: { type: String, default: '' },
+  countdownLabel: { type: String, default: '' },
 }, { _id: false });
 
 const SlotTemplateSchema = new mongoose.Schema({
@@ -156,6 +163,14 @@ const AISuggestionSchema = new mongoose.Schema({
   generatedAt: { type: Number, default: Date.now },
 }, { _id: false });
 
+const MarkdownFileSchema = new mongoose.Schema({
+  id: { type: String, required: true },
+  title: { type: String, required: true },
+  content: { type: String, default: '' },
+  createdAt: { type: Number, default: Date.now },
+  updatedAt: { type: Number, default: Date.now },
+}, { _id: false });
+
 const UserDataSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
   categories: { type: [CategorySchema], default: [] },
@@ -168,8 +183,13 @@ const UserDataSchema = new mongoose.Schema({
   shiftLogs: { type: [ShiftLogSchema], default: [] },
   studyPlans: { type: [StudyPlanSchema], default: [] },
   aiSuggestions: { type: [AISuggestionSchema], default: [] },
+  markdownFiles: { type: [MarkdownFileSchema], default: [] },
   settings: { type: SettingsSchema, default: () => ({}) },
   lastSyncAt: { type: Number, default: Date.now },
 }, { versionKey: false });
+
+if (mongoose.models.UserData && !mongoose.models.UserData.schema.paths['categories.isDeleted']) {
+  delete mongoose.models.UserData;
+}
 
 export const UserData = mongoose.models.UserData || mongoose.model('UserData', UserDataSchema);

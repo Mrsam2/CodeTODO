@@ -1,18 +1,43 @@
 'use client';
 
+import { useEffect } from 'react';
 import { Card, ProgressBar, Row, SectionHeader, EmptyState } from '@/components/ui';
+import { LottieLoader } from '@/components/LottieLoader';
 import { TrendChart } from '@/components/TrendChart';
+import {
+  CalendarHeatmap,
+  CalendarHeatmapBlock,
+  CalendarHeatmapBody,
+  CalendarHeatmapFooter,
+  CalendarHeatmapLegend,
+  CalendarHeatmapStat,
+} from '@/components/heatmap/calendar-heatmap';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useAppStore } from '@/store/useAppStore';
-import { trend } from '@/lib/analytics';
+import { trend, heatmap } from '@/lib/analytics';
+import { format, parseISO } from 'date-fns';
 
 export default function DashboardPage() {
   const store = useAppStore();
+
+  useEffect(() => {
+    store.syncWithCloud(['todos', 'categories']);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const today = store.getTodayStats();
   const streakCount = store.getStreak();
   const reports = store.getCategoryReports();
   const weak = store.getWeaknesses();
   const trendData = trend(store.todos, 7).map((d) => ({ date: d.date.substring(5), value: d.completionPct }));
+
+  const currentYear = new Date().getFullYear();
+  const heatmapData = heatmap(store.todos, currentYear);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -38,6 +63,39 @@ export default function DashboardPage() {
       <SectionHeader title="7-Day Trend" />
       <Card>
         {trendData.length > 0 ? <TrendChart data={trendData} /> : <span style={{ color: 'var(--color-text-secondary)' }}>No data yet</span>}
+      </Card>
+
+      <SectionHeader title="Activity Heatmap" />
+      <Card>
+        <TooltipProvider delayDuration={0}>
+          <CalendarHeatmap data={heatmapData} year={currentYear}>
+            <CalendarHeatmapBody>
+              {({ activity, dayIndex, weekIndex }) => (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <CalendarHeatmapBlock
+                      activity={activity}
+                      dayIndex={dayIndex}
+                      weekIndex={weekIndex}
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent side="top" sideOffset={6}>
+                    <p style={{ fontWeight: 600, margin: 0 }}>
+                      {format(parseISO(activity.date), 'PPP')}
+                    </p>
+                    <p style={{ color: 'var(--color-text-secondary)', margin: 0 }}>
+                      {activity.value} task{activity.value !== 1 ? 's' : ''} completed
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </CalendarHeatmapBody>
+            <CalendarHeatmapFooter>
+              <CalendarHeatmapStat />
+              <CalendarHeatmapLegend />
+            </CalendarHeatmapFooter>
+          </CalendarHeatmap>
+        </TooltipProvider>
       </Card>
 
       {reports.length > 0 && (
@@ -74,7 +132,13 @@ export default function DashboardPage() {
         </>
       )}
 
-      {reports.length === 0 && <EmptyState title="No data yet" subtitle="Create categories and todos to see analytics" />}
+      {reports.length === 0 && (
+        store.loadingSections?.todos || store.loadingSections?.categories ? (
+          <LottieLoader text="Loading Analytics..." size={120} />
+        ) : (
+          <EmptyState title="No data yet" subtitle="Create categories and todos to see analytics" />
+        )
+      )}
     </div>
   );
 }

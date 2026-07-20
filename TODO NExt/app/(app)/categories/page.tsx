@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Button, Card, Chip, EmptyState, Input, ProgressBar, Row, SectionHeader, CategoryIcon } from '@/components/ui';
+import { LottieLoader } from '@/components/LottieLoader';
+import { Button, Card, Chip, EmptyState, Input, ProgressBar, Row, SectionHeader, CategoryIcon, Modal } from '@/components/ui';
 import { categoryCompletionPct } from '@/lib/roadmap';
 import { useAppStore } from '@/store/useAppStore';
 import { Category } from '@/types';
@@ -19,10 +20,20 @@ function BrandIconPreview({ slug, size = 14 }: { slug: string; size?: number }) 
 export default function CategoriesPage() {
   const router = useRouter();
   const store = useAppStore();
+
+  useEffect(() => {
+    store.syncWithCloud(['categories', 'roadmapNodes']);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [color, setColor] = useState(PALETTE[0]);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [deleteConfirmName, setDeleteConfirmName] = useState('');
+
+  const activeCategories = store.categories.filter((c) => !c.isDeleted);
   const [icon, setIcon] = useState(ICONS[0]);
   const [pace, setPace] = useState('60');
 
@@ -142,9 +153,14 @@ export default function CategoriesPage() {
   };
 
   const confirmDelete = (categoryId: string, categoryName: string) => {
-    const message = `Are you sure you want to delete "${categoryName}"? This will permanently delete all associated topics, roadmaps, and schedule slots.`;
-    if (window.confirm(message)) {
-      store.deleteCategory(categoryId);
+    setDeleteConfirmId(categoryId);
+    setDeleteConfirmName(categoryName);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (deleteConfirmId) {
+      store.deleteCategory(deleteConfirmId);
+      setDeleteConfirmId(null);
     }
   };
 
@@ -228,10 +244,14 @@ export default function CategoriesPage() {
         </Card>
       ) : null}
 
-      {store.categories.length === 0 ? (
-        <EmptyState title="No categories yet" subtitle="Create a track like DSA, English Speaking, or LeetCode." />
+      {activeCategories.length === 0 ? (
+        store.loadingSections?.categories ? (
+          <LottieLoader text="Syncing Categories..." size={120} />
+        ) : (
+          <EmptyState title="No categories yet" subtitle="Create a track like DSA, English Speaking, or LeetCode." />
+        )
       ) : (
-        store.categories.map((category) => {
+        activeCategories.map((category) => {
           const pct = categoryCompletionPct(store.roadmapNodes, category.id);
           const nodeCount = store.roadmapNodes.filter((n) => n.categoryId === category.id).length;
           const isEditing = editingId === category.id;
@@ -291,6 +311,24 @@ export default function CategoriesPage() {
           );
         })
       )}
+
+      <Modal
+        visible={!!deleteConfirmId}
+        onClose={() => setDeleteConfirmId(null)}
+        title="Delete Track?"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '8px 0' }}>
+          <span style={{ fontSize: 14, color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
+            Are you sure you want to delete the track <strong>&quot;{deleteConfirmName}&quot;</strong>?
+            <br /><br />
+            This will hide it from your dashboard and move it to the Recycle Bin in Settings, where you can restore it or delete it permanently.
+          </span>
+          <Row style={{ justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
+            <Button title="Cancel" variant="secondary" onPress={() => setDeleteConfirmId(null)} />
+            <Button title="Delete" onPress={handleDeleteConfirm} style={{ backgroundColor: 'var(--color-error)' }} />
+          </Row>
+        </div>
+      </Modal>
     </div>
   );
 }

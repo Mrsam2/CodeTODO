@@ -13,6 +13,7 @@ interface InputProps {
   secureTextEntry?: boolean;
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
   autoCorrect?: boolean;
+  type?: string;
 }
 
 export function Input({
@@ -27,6 +28,7 @@ export function Input({
   secureTextEntry,
   autoCapitalize,
   autoCorrect,
+  type,
 }: InputProps) {
   const inputMode = keyboardType === 'numeric' ? 'numeric' : keyboardType === 'email-address' ? 'email' : 'text';
   const className = [styles.input, multiline && styles.multiline].filter(Boolean).join(' ');
@@ -50,7 +52,7 @@ export function Input({
 
   return (
     <input
-      type={secureTextEntry ? 'password' : keyboardType === 'email-address' ? 'email' : 'text'}
+      type={type || (secureTextEntry ? 'password' : keyboardType === 'email-address' ? 'email' : 'text')}
       inputMode={inputMode as 'text' | 'numeric' | 'email'}
       value={value}
       onChange={(e) => onChangeText(e.target.value)}

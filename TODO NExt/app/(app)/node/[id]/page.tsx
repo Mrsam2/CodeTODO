@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
+import { LottieLoader } from '@/components/LottieLoader';
 import { Button, Card, Input, SectionHeader } from '@/components/ui';
 import { TodoItem } from '@/components/TodoItem';
 import { useAppStore } from '@/store/useAppStore';
@@ -9,12 +10,21 @@ import { useAppStore } from '@/store/useAppStore';
 export default function NodeDetailPage() {
   const { id } = useParams<{ id: string }>();
   const store = useAppStore();
+
+  useEffect(() => {
+    store.syncWithCloud(['categories', 'roadmapNodes']);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const node = store.roadmapNodes.find((n) => n.id === id);
   const [description, setDescription] = useState(node?.description || '');
   const [subtopicTitle, setSubtopicTitle] = useState('');
   const [isEditing, setIsEditing] = useState(false);
 
   if (!node) {
+    if (store.loadingSections?.roadmapNodes) {
+      return <LottieLoader text="Loading Topic..." size={120} />;
+    }
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
         <span>Topic not found</span>

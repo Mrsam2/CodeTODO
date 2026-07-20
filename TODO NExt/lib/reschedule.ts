@@ -1,5 +1,5 @@
-import { Todo, DayPlan, TimeSlot, ShiftLog, MAX_SHIFTS } from '@/types';
-import { todayISO, addDays, dateTimeMs, slotDurationMins } from './dates';
+import { Todo, DayPlan, ShiftLog, MAX_SHIFTS } from '@/types';
+import { addDays, dateTimeMs } from './dates';
 
 export interface RescheduleResult {
   todos: Todo[];
@@ -13,7 +13,6 @@ export function runReschedule(
   gracePeriodMins: number
 ): RescheduleResult {
   const now = Date.now();
-  const today = todayISO();
   const shiftLogs: ShiftLog[] = [];
   const newDayPlans: DayPlan[] = [];
   const updatedTodos = [...todos];
