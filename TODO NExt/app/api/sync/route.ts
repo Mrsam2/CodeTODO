@@ -58,14 +58,23 @@ export async function POST(req: NextRequest) {
     if (dbReady) {
       try {
         const userObjectId = new mongoose.Types.ObjectId(userId);
-        let userData = await UserData.findOne({ userId: userObjectId });
+        const hasSections = sections && Array.isArray(sections);
+        const projection: Record<string, number> = { userId: 1, lastSyncAt: 1, settings: 1 };
+        if (hasSections) {
+          sections.forEach((sec) => {
+            projection[sec] = 1;
+          });
+        }
+
+        let userData = await UserData.findOne({ userId: userObjectId }, hasSections ? projection : undefined).lean();
         if (!userData) {
           try {
-            userData = new UserData({ userId: userObjectId });
-            await userData.save();
+            const newDoc = new UserData({ userId: userObjectId });
+            const savedDoc = await newDoc.save();
+            userData = savedDoc.toObject();
           } catch (saveErr: unknown) {
             if ((saveErr as { code?: number }).code === 11000) {
-              userData = await UserData.findOne({ userId: userObjectId });
+              userData = await UserData.findOne({ userId: userObjectId }, hasSections ? projection : undefined).lean();
             } else {
               throw saveErr;
             }
@@ -76,63 +85,72 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ error: 'Failed to find or create user data' }, { status: 500 });
         }
 
-        if (sections && Array.isArray(sections)) {
-          if (sections.includes('categories')) userData.categories = mergeCollections(userData.categories, categories, deletedIds);
-          if (sections.includes('roadmapNodes')) userData.roadmapNodes = mergeCollections(userData.roadmapNodes, roadmapNodes, deletedIds);
-          if (sections.includes('todos')) userData.todos = mergeCollections(userData.todos, todos, deletedIds);
-          if (sections.includes('dayPlans')) userData.dayPlans = mergeCollections(userData.dayPlans, dayPlans, deletedIds);
-          if (sections.includes('notes')) userData.notes = mergeCollections(userData.notes, notes, deletedIds);
-          if (sections.includes('savedLinks')) userData.savedLinks = mergeCollections(userData.savedLinks, savedLinks, deletedIds);
-          if (sections.includes('futureIdeas')) userData.futureIdeas = mergeCollections(userData.futureIdeas, futureIdeas, deletedIds);
-          if (sections.includes('shiftLogs')) userData.shiftLogs = mergeCollections(userData.shiftLogs, shiftLogs, deletedIds);
-          if (sections.includes('studyPlans')) userData.studyPlans = mergeCollections(userData.studyPlans, studyPlans, deletedIds);
-          if (sections.includes('aiSuggestions')) userData.aiSuggestions = mergeCollections(userData.aiSuggestions, aiSuggestions, deletedIds);
-          if (sections.includes('markdownFiles')) userData.markdownFiles = mergeCollections(userData.markdownFiles, markdownFiles, deletedIds);
+        const updatePayload: any = {
+          lastSyncAt: Date.now()
+        };
 
-          if (deletedIds.length > 0) {
-            allCollections.forEach((col) => {
-              if (!sections.includes(col)) {
-                (userData[col] as any) = (userData[col] as any).filter((item: any) => !deletedIds.includes(item.id));
-              }
-            });
-          }
+        if (hasSections) {
+          if (sections.includes('categories')) updatePayload.categories = mergeCollections((userData.categories || []) as any[], categories, deletedIds);
+          if (sections.includes('roadmapNodes')) updatePayload.roadmapNodes = mergeCollections((userData.roadmapNodes || []) as any[], roadmapNodes, deletedIds);
+          if (sections.includes('todos')) updatePayload.todos = mergeCollections((userData.todos || []) as any[], todos, deletedIds);
+          if (sections.includes('dayPlans')) updatePayload.dayPlans = mergeCollections((userData.dayPlans || []) as any[], dayPlans, deletedIds);
+          if (sections.includes('notes')) updatePayload.notes = mergeCollections((userData.notes || []) as any[], notes, deletedIds);
+          if (sections.includes('savedLinks')) updatePayload.savedLinks = mergeCollections((userData.savedLinks || []) as any[], savedLinks, deletedIds);
+          if (sections.includes('futureIdeas')) updatePayload.futureIdeas = mergeCollections((userData.futureIdeas || []) as any[], futureIdeas, deletedIds);
+          if (sections.includes('shiftLogs')) updatePayload.shiftLogs = mergeCollections((userData.shiftLogs || []) as any[], shiftLogs, deletedIds);
+          if (sections.includes('studyPlans')) updatePayload.studyPlans = mergeCollections((userData.studyPlans || []) as any[], studyPlans, deletedIds);
+          if (sections.includes('aiSuggestions')) updatePayload.aiSuggestions = mergeCollections((userData.aiSuggestions || []) as any[], aiSuggestions, deletedIds);
+          if (sections.includes('markdownFiles')) updatePayload.markdownFiles = mergeCollections((userData.markdownFiles || []) as any[], markdownFiles, deletedIds);
         } else {
-          userData.categories = mergeCollections(userData.categories, categories, deletedIds);
-          userData.roadmapNodes = mergeCollections(userData.roadmapNodes, roadmapNodes, deletedIds);
-          userData.todos = mergeCollections(userData.todos, todos, deletedIds);
-          userData.dayPlans = mergeCollections(userData.dayPlans, dayPlans, deletedIds);
-          userData.notes = mergeCollections(userData.notes, notes, deletedIds);
-          userData.savedLinks = mergeCollections(userData.savedLinks, savedLinks, deletedIds);
-          userData.futureIdeas = mergeCollections(userData.futureIdeas, futureIdeas, deletedIds);
-          userData.shiftLogs = mergeCollections(userData.shiftLogs, shiftLogs, deletedIds);
-          userData.studyPlans = mergeCollections(userData.studyPlans, studyPlans, deletedIds);
-          userData.aiSuggestions = mergeCollections(userData.aiSuggestions, aiSuggestions, deletedIds);
-          userData.markdownFiles = mergeCollections(userData.markdownFiles, markdownFiles, deletedIds);
+          updatePayload.categories = mergeCollections((userData.categories || []) as any[], categories, deletedIds);
+          updatePayload.roadmapNodes = mergeCollections((userData.roadmapNodes || []) as any[], roadmapNodes, deletedIds);
+          updatePayload.todos = mergeCollections((userData.todos || []) as any[], todos, deletedIds);
+          updatePayload.dayPlans = mergeCollections((userData.dayPlans || []) as any[], dayPlans, deletedIds);
+          updatePayload.notes = mergeCollections((userData.notes || []) as any[], notes, deletedIds);
+          updatePayload.savedLinks = mergeCollections((userData.savedLinks || []) as any[], savedLinks, deletedIds);
+          updatePayload.futureIdeas = mergeCollections((userData.futureIdeas || []) as any[], futureIdeas, deletedIds);
+          updatePayload.shiftLogs = mergeCollections((userData.shiftLogs || []) as any[], shiftLogs, deletedIds);
+          updatePayload.studyPlans = mergeCollections((userData.studyPlans || []) as any[], studyPlans, deletedIds);
+          updatePayload.aiSuggestions = mergeCollections((userData.aiSuggestions || []) as any[], aiSuggestions, deletedIds);
+          updatePayload.markdownFiles = mergeCollections((userData.markdownFiles || []) as any[], markdownFiles, deletedIds);
         }
 
         if (Object.keys(settings).length > 0) {
-          userData.settings = { ...userData.settings.toObject(), ...settings };
+          updatePayload.settings = { ...(userData.settings || {}), ...settings };
         }
 
-        userData.lastSyncAt = Date.now();
-        const updatePayload = userData.toObject();
-        delete updatePayload._id;
-        await UserData.updateOne({ _id: userData._id }, { $set: updatePayload });
+        const updateQuery: any = {
+          $set: updatePayload
+        };
+
+        if (deletedIds.length > 0) {
+          const pullPayload: any = {};
+          allCollections.forEach((col) => {
+            if (!updatePayload.hasOwnProperty(col)) {
+              pullPayload[col] = { id: { $in: deletedIds } };
+            }
+          });
+          if (Object.keys(pullPayload).length > 0) {
+            updateQuery.$pull = pullPayload;
+          }
+        }
+
+        await UserData.updateOne({ _id: userData._id }, updateQuery);
 
         dbSyncSucceeded = true;
 
         const responseData: any = {
-          lastSyncAt: userData.lastSyncAt,
-          settings: userData.settings,
+          lastSyncAt: updatePayload.lastSyncAt,
+          settings: updatePayload.settings || userData.settings || {},
         };
 
-        if (sections && Array.isArray(sections)) {
+        if (hasSections) {
           sections.forEach((sec) => {
-            responseData[sec] = userData[sec];
+            responseData[sec] = updatePayload[sec] !== undefined ? updatePayload[sec] : (userData as any)[sec];
           });
         } else {
           allCollections.forEach((col) => {
-            responseData[col] = userData[col];
+            responseData[col] = updatePayload[col] !== undefined ? updatePayload[col] : (userData as any)[col];
           });
         }
 

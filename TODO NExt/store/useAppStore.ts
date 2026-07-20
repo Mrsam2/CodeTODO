@@ -531,13 +531,20 @@ export const useAppStore = create<AppState>()(
         const loadingUpdates: Record<string, boolean> = {};
         if (sectionsToSync) {
           sectionsToSync.forEach((sec) => {
-            loadingUpdates[sec] = true;
+            // Only show loader if we have never fetched this section before on this device
+            if (!state.lastFetchedSections?.[sec]) {
+              loadingUpdates[sec] = true;
+            }
           });
         } else {
           allCollections.forEach((sec) => {
-            loadingUpdates[sec] = true;
+            if (!state.lastFetchedSections?.[sec]) {
+              loadingUpdates[sec] = true;
+            }
           });
-          loadingUpdates['global'] = true;
+          if (Object.keys(loadingUpdates).length > 0) {
+            loadingUpdates['global'] = true;
+          }
         }
 
         set((prev) => ({
